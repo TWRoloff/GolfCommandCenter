@@ -283,10 +283,10 @@ function renderDreamRound(dreamRound) {
 }
 
 function dreamRoundMeta(dreamRound) {
-  if (!dreamRound?.holesPlayed) return "Best-of-Runde";
+  if (!dreamRound?.holesPlayed) return "Beste Runde";
   const diff = dreamRound.scoreDiff;
   const diffText = diff === null || diff === undefined ? "" : ` · ${formatDiff(diff)} zu Par`;
-  const dateText = dreamRound.dateLabel ? ` · aus ${dreamRound.dateLabel}` : "";
+  const dateText = dreamRound.dateLabel ? ` · ${dreamRound.dateLabel}` : "";
   return `${dreamRound.holesPlayed} Löcher${diffText}${dateText}`;
 }
 

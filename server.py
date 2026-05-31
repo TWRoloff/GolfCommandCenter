@@ -156,16 +156,10 @@ def best_scorecard(entries):
 
 
 def build_dream_round(entries, tournament_data=None):
-    groups = {}
+    rounds = [round_data for round_data in (build_round_result(entry) for entry in dream_round_entries(entries, tournament_data)) if round_data]
+    best_hole = best_hole_from_rounds(rounds)
 
-    for entry in dream_round_entries(entries, tournament_data):
-        course_key = entry.get("course") or "Scorecards"
-        group = groups.setdefault(course_key, {"course": course_key, "entries": []})
-        group["entries"].append(entry)
-
-    dream_groups = [build_dream_round_group(group["course"], group["entries"]) for group in groups.values()]
-    dream_groups = [group for group in dream_groups if group["holes"]]
-    if not dream_groups:
+    if not rounds:
         return {
             "source": "Keine Scorecards",
             "summary": "Noch keine Lochdaten gefunden",
@@ -175,76 +169,80 @@ def build_dream_round(entries, tournament_data=None):
             "holesPlayed": 0,
             "course": "",
             "dateLabel": "",
-            "bestHole": None,
+            "bestHole": best_hole,
             "holes": [],
         }
 
-    best_group = min(
-        dream_groups,
-        key=lambda group: (
-            -group["holesPlayed"],
-            group["scoreDiff"] if group["scoreDiff"] is not None else 999,
-            group["totalScore"],
-        ),
-    )
-
-    return best_group
+    best_round = min(rounds, key=round_sort_key)
+    best_round["bestHole"] = best_hole
+    return best_round
 
 
-def build_dream_round_group(course, entries):
-    best_by_hole = {}
-    best_hole = None
-
-    for entry in entries:
-        detail = entry.get("detail") or {}
-        pars_by_hole = {item["hole"]: item["par"] for item in detail.get("pars", [])}
-        for score_item in detail.get("scores", []):
-            hole = score_item.get("hole")
-            score = score_item.get("score")
-            par = pars_by_hole.get(hole)
-            if not hole or not score:
-                continue
-
-            diff = score - par if par else None
-            candidate = {
+def build_round_result(entry):
+    detail = entry.get("detail") or {}
+    pars_by_hole = {item["hole"]: item["par"] for item in detail.get("pars", [])}
+    holes = []
+    for score_item in detail.get("scores", []):
+        hole = score_item.get("hole")
+        score = score_item.get("score")
+        par = pars_by_hole.get(hole)
+        if not hole or not score:
+            continue
+        holes.append(
+            {
                 "hole": hole,
                 "score": score,
                 "par": par,
-                "diff": diff,
+                "diff": score - par if par else None,
                 "date": entry.get("date", ""),
                 "course": entry.get("course", ""),
                 "tee": entry.get("tee", ""),
             }
+        )
 
-            current = best_by_hole.get(hole)
-            if not current or score < current["score"]:
-                best_by_hole[hole] = candidate
-
-            if diff is not None and (
-                not best_hole
-                or diff < best_hole["diff"]
-                or (diff == best_hole["diff"] and score < best_hole["score"])
-            ):
-                best_hole = candidate
-
-    holes = [best_by_hole[key] for key in sorted(best_by_hole)]
+    if not holes:
+        return None
     total_score = sum(item["score"] for item in holes)
     total_par = sum(item["par"] for item in holes if item.get("par"))
     score_diff = total_score - total_par if total_par else None
-    date_label = dream_round_date_label(holes)
 
     return {
-        "source": "PC CADDIE live" if holes else "Keine Scorecards",
-        "summary": dream_round_summary(total_score, total_par, len(holes)),
-        "totalScore": total_score if holes else None,
+        "source": "PC CADDIE live",
+        "summary": best_round_summary(total_score, total_par, len(holes)),
+        "totalScore": total_score,
         "totalPar": total_par if total_par else None,
         "scoreDiff": score_diff,
         "holesPlayed": len(holes),
-        "course": course,
-        "dateLabel": date_label,
-        "bestHole": best_hole,
+        "course": entry.get("course", ""),
+        "dateLabel": entry.get("date", ""),
+        "tee": entry.get("tee", ""),
+        "bestHole": None,
         "holes": holes,
     }
+
+
+def round_sort_key(round_data):
+    return (
+        round_data["scoreDiff"] if round_data["scoreDiff"] is not None else 999,
+        round_data["totalScore"],
+        -round_data["holesPlayed"],
+    )
+
+
+def best_hole_from_rounds(rounds):
+    best_hole = None
+    for round_data in rounds:
+        for hole in round_data.get("holes", []):
+            diff = hole.get("diff")
+            if diff is None:
+                continue
+            if (
+                not best_hole
+                or diff < best_hole["diff"]
+                or (diff == best_hole["diff"] and hole["score"] < best_hole["score"])
+            ):
+                best_hole = hole
+    return best_hole
 
 
 def dream_round_entries(scorecard_entries, tournament_data=None):
@@ -266,32 +264,16 @@ def dream_round_entries(scorecard_entries, tournament_data=None):
     return entries
 
 
-def dream_round_summary(total_score, total_par, holes_count):
+def best_round_summary(total_score, total_par, holes_count):
     if not holes_count:
         return "Noch keine Lochdaten gefunden"
-    label = f"Traumrunde: {total_score} Schläge über {holes_count} Löcher"
+    label = f"Beste Runde: {total_score} Schläge über {holes_count} Löcher"
     if total_par:
         diff = total_score - total_par
         sign = "+" if diff > 0 else ""
         label = f"{label}, {sign}{diff} zu Par"
     return label
 
-
-def dream_round_date_label(holes):
-    dates = sorted({hole.get("date") for hole in holes if hole.get("date")}, key=german_date_sort_key)
-    if not dates:
-        return ""
-    if len(dates) == 1:
-        return dates[0]
-    return f"{dates[0]} bis {dates[-1]}"
-
-
-def german_date_sort_key(value):
-    match = re.match(r"(\d{2})\.(\d{2})\.(\d{4})", value or "")
-    if not match:
-        return value or ""
-    day, month, year = match.groups()
-    return f"{year}-{month}-{day}"
 
 
 def read_override():

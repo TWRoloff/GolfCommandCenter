@@ -8,6 +8,7 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+import codecs
 from pathlib import Path
 
 
@@ -542,8 +543,104 @@ class PcCaddieAdapter:
             "hcpi": cells[8] if len(cells) > 8 else "",
             "url": event.get("url"),
         }
+        hole_details = self._fetch_tournament_player_holes(page, event, row)
+        if hole_details:
+            result.update(hole_details)
         result["label"] = self._tournament_summary(result)
         return result
+
+    def _fetch_tournament_player_holes(self, page, event, row):
+        result_id = self._extract_attr(row, "data-result")
+        player_group = self._extract_attr(row, "data-player-group")
+        if not result_id or not player_group:
+            return None
+
+        json_url = self._tournament_json_url(page, result_id)
+        if not json_url:
+            return None
+
+        raw_data = self._request(json_url)
+        if not raw_data:
+            return None
+
+        try:
+            payload = json.loads(raw_data)
+        except json.JSONDecodeError:
+            return None
+        if payload.get("status") != "OK":
+            return None
+
+        player_data = (
+            payload.get("data", {})
+            .get("1", {})
+            .get(str(player_group), [{}])
+        )
+        if not player_data:
+            return None
+
+        player = player_data[0]
+        scores = self._csv_ints(player.get("sDataScoreCsv", ""))
+        course_id = str(player.get("course_id", ""))
+        course_holes = self._extract_tournament_course_holes(page).get(course_id, {})
+        pars = []
+        score_items = []
+        for index, score in enumerate(scores[:18], start=1):
+            if score is None:
+                continue
+            par = self._to_int((course_holes.get(str(index)) or {}).get("par"))
+            score_items.append({"hole": index, "score": score})
+            if par:
+                pars.append({"hole": index, "par": par})
+
+        if not score_items:
+            return None
+
+        return {
+            "scores": score_items,
+            "pars": pars,
+            "scoreLabel": self._score_label(
+                sum(item["score"] for item in score_items),
+                sum(item["par"] for item in pars) if pars else None,
+                len(score_items),
+            ),
+        }
+
+    def _tournament_json_url(self, page, result_id):
+        match = re.search(r'"([^"]*cat=ts_resultlist[^"]*format=json[^"]*)"', page, re.I)
+        if not match:
+            return None
+        base_url = urllib.parse.urljoin(self.base_url, html.unescape(match.group(1)))
+        separator = "&" if "?" in base_url else "?"
+        return f"{base_url}{separator}{urllib.parse.urlencode({'result': result_id})}"
+
+    def _extract_tournament_course_holes(self, page):
+        for raw_value in re.findall(r"JSON\.parse\(\"((?:\\.|[^\"])*)\"\)", page):
+            try:
+                decoded = codecs.decode(raw_value, "unicode_escape")
+                parsed = json.loads(decoded)
+            except Exception:
+                continue
+            if self._looks_like_course_holes(parsed):
+                return parsed
+        return {}
+
+    def _looks_like_course_holes(self, value):
+        if not isinstance(value, dict):
+            return False
+        for course in value.values():
+            if not isinstance(course, dict):
+                continue
+            first_hole = course.get("1")
+            if isinstance(first_hole, dict) and "par" in first_hole:
+                return True
+        return False
+
+    def _csv_ints(self, value):
+        values = []
+        for item in str(value or "").split(","):
+            item = item.strip()
+            values.append(int(item) if re.fullmatch(r"\d+", item) else None)
+        return values
 
     def _is_ranked_result_row(self, row):
         cells = re.findall(r"<td[^>]*>[\s\S]*?</td>", row, re.I)

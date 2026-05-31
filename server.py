@@ -90,7 +90,7 @@ def build_dashboard_payload():
     scorecard_data["list"] = scorecard_list["entries"]
     scorecard_data["latest"] = scorecard_list["latest"]
     scorecard_data["best"] = best_scorecard(scorecard_list["entries"])
-    dream_round = build_dream_round(scorecard_list["entries"])
+    dream_round = build_dream_round(scorecard_list["entries"], tournament_data)
     if scorecard_list["latest"]:
         latest_detail = scorecard_list["latest"].get("detail") or {}
         score_label = latest_detail.get("scoreLabel")
@@ -155,7 +155,42 @@ def best_scorecard(entries):
     )
 
 
-def build_dream_round(entries):
+def build_dream_round(entries, tournament_data=None):
+    groups = {}
+
+    for entry in dream_round_entries(entries, tournament_data):
+        course_key = entry.get("course") or "Scorecards"
+        group = groups.setdefault(course_key, {"course": course_key, "entries": []})
+        group["entries"].append(entry)
+
+    dream_groups = [build_dream_round_group(group["course"], group["entries"]) for group in groups.values()]
+    dream_groups = [group for group in dream_groups if group["holes"]]
+    if not dream_groups:
+        return {
+            "source": "Keine Scorecards",
+            "summary": "Noch keine Lochdaten gefunden",
+            "totalScore": None,
+            "totalPar": None,
+            "scoreDiff": None,
+            "holesPlayed": 0,
+            "course": "",
+            "bestHole": None,
+            "holes": [],
+        }
+
+    best_group = min(
+        dream_groups,
+        key=lambda group: (
+            -group["holesPlayed"],
+            group["scoreDiff"] if group["scoreDiff"] is not None else 999,
+            group["totalScore"],
+        ),
+    )
+
+    return best_group
+
+
+def build_dream_round_group(course, entries):
     best_by_hole = {}
     best_hole = None
 
@@ -203,9 +238,29 @@ def build_dream_round(entries):
         "totalPar": total_par if total_par else None,
         "scoreDiff": score_diff,
         "holesPlayed": len(holes),
+        "course": course,
         "bestHole": best_hole,
         "holes": holes,
     }
+
+
+def dream_round_entries(scorecard_entries, tournament_data=None):
+    entries = list(scorecard_entries or [])
+    for result in (tournament_data or {}).get("history", []):
+        if not result.get("scores"):
+            continue
+        entries.append(
+            {
+                "date": result.get("date", ""),
+                "course": result.get("event", ""),
+                "tee": "",
+                "detail": {
+                    "scores": result.get("scores", []),
+                    "pars": result.get("pars", []),
+                },
+            }
+        )
+    return entries
 
 
 def dream_round_summary(total_score, total_par, holes_count):

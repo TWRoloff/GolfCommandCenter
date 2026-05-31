@@ -86,6 +86,7 @@ def build_dashboard_payload():
     handicap_data = pc_caddie.fetch_handicap()
     scorecard_data = pc_caddie.fetch_scorecard()
     scorecard_list = pc_caddie.fetch_scorecard_list()
+    tournament_data = pc_caddie.fetch_tournament_results()
     scorecard_data["list"] = scorecard_list["entries"]
     scorecard_data["latest"] = scorecard_list["latest"]
     scorecard_data["best"] = best_scorecard(scorecard_list["entries"])
@@ -122,12 +123,14 @@ def build_dashboard_payload():
         "nextRound": round_data,
         "handicap": handicap_data,
         "scorecard": scorecard_data,
+        "tournament": tournament_data,
         "sources": {
             "weather": "Open-Meteo live",
             "teeTimes": tee_time_data["source"],
             "nextRound": round_data["source"],
             "handicap": handicap_data["source"],
             "scorecard": scorecard_list["source"] if scorecard_list["latest"] else scorecard_data["source"],
+            "tournament": tournament_data["source"],
         },
     }
 

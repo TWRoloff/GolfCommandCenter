@@ -342,6 +342,21 @@ dd {
   color: var(--yellow);
 }
 
+.tournament-event {
+  min-height: 40px;
+  color: var(--muted);
+  font-weight: 800;
+  line-height: 1.25;
+}
+
+.tournament-metric {
+  margin-top: 12px;
+}
+
+.tournament-metric strong {
+  color: var(--blue);
+}
+
 .bar-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);

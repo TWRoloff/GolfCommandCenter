@@ -126,6 +126,25 @@ class PcCaddieAdapter:
             "summary": "Keine Scorekartenliste verfuegbar",
         }
 
+    def fetch_tournament_results(self):
+        player_name = os.getenv("PCCADDIE_TOURNAMENT_PLAYER", "Werner Roloff")
+        if self.configured:
+            live = self._fetch_live_tournament_results(player_name)
+            if live:
+                return live
+
+        return {
+            "source": "PC CADDIE Zugang fehlt",
+            "status": "Keine Turnierergebnisse geladen",
+            "player": player_name,
+            "summary": "Turnierauswertung wartet auf PC CADDIE",
+            "latest": None,
+            "history": [],
+            "averageNet": None,
+            "bestNet": None,
+            "trend": "Noch keine Auswertung",
+        }
+
     def _fetch_live_tee_times(self):
         booking_page = self._fetch_cat("tt_timetable_course_alias")
         if not booking_page:
@@ -409,6 +428,184 @@ class PcCaddieAdapter:
             "latest": latest,
             "summary": self._scorecard_list_summary(latest),
         }
+
+    def _fetch_live_tournament_results(self, player_name):
+        page = self._fetch_cat("ts_resultlist")
+        if not page:
+            return None
+
+        events = self._parse_tournament_events(page)
+        results = []
+        for event in events[:8]:
+            result_page = self._request(event["url"])
+            if not result_page:
+                continue
+            result = self._parse_player_tournament_result(result_page, event, player_name)
+            if result:
+                results.append(result)
+            if len(results) >= 5:
+                break
+
+        if not results:
+            return {
+                "source": "PC CADDIE live",
+                "status": "Keine Treffer",
+                "player": player_name,
+                "summary": f"Keine Mittwoch-Ergebnisse fuer {player_name} gefunden",
+                "latest": None,
+                "history": [],
+                "averageNet": None,
+                "bestNet": None,
+                "trend": "Noch keine Auswertung",
+            }
+
+        latest = results[0]
+        net_scores = [result["net"] for result in results if self._is_plausible_stableford_net(result.get("net"))]
+        average_net = round(sum(net_scores) / len(net_scores), 1) if net_scores else None
+        best_net = max(net_scores) if net_scores else None
+        trend = self._tournament_trend(results)
+
+        return {
+            "source": "PC CADDIE live",
+            "status": "Turnierergebnisse live",
+            "player": player_name,
+            "summary": self._tournament_summary(latest),
+            "latest": latest,
+            "history": results,
+            "averageNet": average_net,
+            "bestNet": best_net,
+            "trend": trend,
+        }
+
+    def _parse_tournament_events(self, page):
+        events = []
+        seen = set()
+        rows = re.findall(r"(<tr[^>]*>[\s\S]*?</tr>)", page, re.I)
+        for row in rows:
+            text = self._to_text(row)
+            if not re.search(r"\b(Mi\.|Mittwoch|Herrengolf)\b", text, re.I):
+                continue
+
+            hrefs = re.findall(r'href="([^"]*cat=ts_resultlist[^"]*sub=resultlist[^"]*)"', row, re.I)
+            if not hrefs:
+                continue
+
+            href = html.unescape(hrefs[-1])
+            event_id = self._query_value(href, "id")
+            if event_id in seen:
+                continue
+            seen.add(event_id)
+
+            date_match = re.search(r"(\d{2}\.\d{2}\.\d{4})", text)
+            title_match = re.search(r"(Herrengolf.*?)(?:\s+Mi,|\s+Mi\.|\s+Mittwoch|\s+\d{2}\.\d{2}\.\d{4})", text)
+            holes_match = re.search(r"Löcher:\s*(\d+)", text) or re.search(r"(\d+)\s+Löcher", text)
+            events.append(
+                {
+                    "id": event_id,
+                    "title": title_match.group(1).strip() if title_match else "Mittwochsturnier",
+                    "date": date_match.group(1) if date_match else "",
+                    "holes": self._to_int(holes_match.group(1)) if holes_match else None,
+                    "url": urllib.parse.urljoin(self.base_url, href),
+                }
+            )
+        return events
+
+    def _parse_player_tournament_result(self, page, event, player_name):
+        target_names = self._tournament_target_names(player_name)
+        player_rows = []
+        for row in re.findall(r"(<tr[^>]*>[\s\S]*?</tr>)", page, re.I):
+            row_text = self._to_text(row)
+            if any(target.lower() in row_text.lower() for target in target_names):
+                player_rows.append((row, row_text))
+
+        if not player_rows:
+            return None
+
+        row, _ = next((candidate for candidate in player_rows if self._is_ranked_result_row(candidate[0])), player_rows[0])
+        cells = [self._to_text(cell) for cell in re.findall(r"<td[^>]*>([\s\S]*?)</td>", row, re.I)]
+        if len(cells) < 8:
+            return None
+
+        name = re.sub(r"\s*\([^)]*\)", "", cells[2]).strip()
+        result = {
+            "event": self._extract_tournament_title(page) or event.get("title") or "Mittwochsturnier",
+            "date": self._extract_tournament_date(page) or event.get("date") or "",
+            "format": self._extract_tournament_format(page),
+            "holes": event.get("holes"),
+            "player": name,
+            "position": self._to_int(cells[0]),
+            "homeClub": cells[3],
+            "phcp": self._to_int(cells[4]),
+            "gross": self._to_int(cells[5]),
+            "net": self._to_int(cells[6]),
+            "gbe": self._to_int(cells[7]),
+            "hcpi": cells[8] if len(cells) > 8 else "",
+            "url": event.get("url"),
+        }
+        result["label"] = self._tournament_summary(result)
+        return result
+
+    def _is_ranked_result_row(self, row):
+        cells = re.findall(r"<td[^>]*>[\s\S]*?</td>", row, re.I)
+        return bool(cells and re.match(r"\d+", self._to_text(cells[0])))
+
+    def _tournament_target_names(self, player_name):
+        parts = player_name.split()
+        targets = [player_name]
+        if len(parts) >= 2:
+            targets.append(f"{parts[-1]}, {' '.join(parts[:-1])}")
+        return targets
+
+    def _extract_tournament_title(self, page):
+        text = self._to_text(page)
+        match = re.search(r"Turnierergebnisse\s+(.+?)\s+Datum", text)
+        return match.group(1).strip() if match else None
+
+    def _extract_tournament_date(self, page):
+        text = self._to_text(page)
+        match = re.search(r"Datum\s+(?:[A-Za-zÄÖÜäöüß]{2,3}\.,?\s*)?(\d{2}\.\d{2}\.\d{4})", text)
+        return match.group(1) if match else None
+
+    def _extract_tournament_format(self, page):
+        text = self._to_text(page)
+        match = re.search(r"Spielform\s+(.+?)\s+Runden", text)
+        return match.group(1).strip() if match else ""
+
+    def _tournament_summary(self, result):
+        if not result:
+            return "Keine Turnierergebnisse"
+        parts = []
+        if result.get("position"):
+            parts.append(f"{result['position']}. Platz")
+        if result.get("gross") is not None:
+            parts.append(f"Brutto {result['gross']}")
+        if result.get("net") is not None:
+            parts.append(f"Netto {result['net']}")
+        if result.get("gbe") is not None:
+            parts.append(f"GBE {result['gbe']}")
+        return " · ".join(parts) if parts else result.get("event", "Turnierergebnis")
+
+    def _tournament_trend(self, results):
+        net_scores = [result["net"] for result in results if self._is_plausible_stableford_net(result.get("net"))]
+        if len(net_scores) < 2:
+            return "Noch keine Tendenz"
+        latest, previous = net_scores[0], net_scores[1]
+        diff = latest - previous
+        if diff > 0:
+            return f"+{diff} Netto zum letzten Mittwoch"
+        if diff < 0:
+            return f"{diff} Netto zum letzten Mittwoch"
+        return "Netto stabil zum letzten Mittwoch"
+
+    def _is_plausible_stableford_net(self, value):
+        return isinstance(value, int) and 0 <= value <= 60
+
+    def _query_value(self, url, key):
+        parsed = urllib.parse.urlparse(html.unescape(url))
+        values = urllib.parse.parse_qs(parsed.query)
+        if key not in values:
+            return None
+        return values[key][0]
 
     def _parse_scorecard_list(self, page):
         entries = []

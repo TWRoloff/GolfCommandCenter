@@ -30,6 +30,15 @@
     status: "Online-Link bereit",
     summary: "Scorecard wird geladen",
   },
+  tournament: {
+    status: "Turnierergebnisse laden",
+    summary: "Mittwochsergebnisse werden geladen",
+    latest: null,
+    history: [],
+    averageNet: null,
+    bestNet: null,
+    trend: "Noch keine Auswertung",
+  },
   clubUpdate: {
     title: "Apeld\u00f6r Updates \u00f6ffnen",
     url: "https://apeldoer.de/apeldoer-updates/",
@@ -41,6 +50,7 @@
     nextRound: "PC CADDIE offen",
     handicap: "Demo",
     scorecard: "Link bereit",
+    tournament: "PC CADDIE offen",
   },
 };
 
@@ -71,6 +81,11 @@ const els = {
   scoreReason: document.querySelector("#scoreReason"),
   scorecardSummary: document.querySelector("#scorecardSummary"),
   scorecardGrid: document.querySelector("#scorecardGrid"),
+  tournamentEvent: document.querySelector("#tournamentEvent"),
+  tournamentNet: document.querySelector("#tournamentNet"),
+  tournamentResult: document.querySelector("#tournamentResult"),
+  tournamentLatest: document.querySelector("#tournamentLatest"),
+  tournamentTrend: document.querySelector("#tournamentTrend"),
   clubCardName: document.querySelector("#clubCardName"),
   clubCardLocation: document.querySelector("#clubCardLocation"),
   courseStatus: document.querySelector("#courseStatus"),
@@ -131,6 +146,7 @@ async function refreshDashboard() {
   dashboardState.nextRound = teeTimeData.nextRound;
   dashboardState.sourceStatus.teeTimes = teeTimeData.source;
   dashboardState.sourceStatus.scorecard = scorecardData.source;
+  dashboardState.sourceStatus.tournament = "PC CADDIE offen";
   dashboardState.scorecard = scorecardData;
   dashboardState.clubInfo = [];
 
@@ -154,7 +170,9 @@ function applyDashboardData(data) {
   dashboardState.sourceStatus.nextRound = data.sources?.nextRound || "API";
   dashboardState.sourceStatus.handicap = data.sources?.handicap || "API";
   dashboardState.sourceStatus.scorecard = data.scorecard?.source || "API";
+  dashboardState.sourceStatus.tournament = data.sources?.tournament || data.tournament?.source || "API";
   dashboardState.scorecard = data.scorecard || dashboardState.scorecard;
+  dashboardState.tournament = data.tournament || dashboardState.tournament;
   dashboardState.clubInfo = [];
 }
 
@@ -210,6 +228,7 @@ function render() {
   els.golfScore.textContent = score;
   els.scoreReason.textContent = Number(score) >= 8 ? "Perfekter Golftag" : "Spielbar, aber Bedingungen pr\u00fcfen";
   els.scorecardSummary.textContent = dashboardState.scorecard.summary || dashboardState.scorecard.status || "Scorecard bereit";
+  renderTournament(dashboardState.tournament);
   els.teeDateLabel.textContent = teeDateText(dashboardState.teeTimeDateLabel);
   els.bookingLink.href = dashboardState.club.urls.teeTimes;
   els.scorecardLink.href = dashboardState.scorecard.url || dashboardState.club.urls.scorecard;
@@ -224,6 +243,24 @@ function render() {
   els.occupancyGroups.replaceChildren(...renderOccupancyGroups(dashboardState.teeTimeGroups));
   els.teeTimes.replaceChildren(...renderTeeGroups(dashboardState.teeTimeGroups, dashboardState.teeTimes));
   els.scorecardGrid.replaceChildren(...renderScorecardGrid(dashboardState.scorecard.latest?.detail));
+}
+
+function renderTournament(tournament) {
+  const latest = tournament?.latest;
+  els.tournamentEvent.textContent = latest ? `${latest.event} \u00b7 ${latest.date}` : tournament?.summary || "Keine Ergebnisse gefunden";
+  els.tournamentNet.textContent = latest?.net ?? "--";
+  els.tournamentResult.textContent = latest ? "Netto-Punkte" : "Netto";
+  els.tournamentLatest.textContent = latest ? tournament.summary : tournament?.status || "--";
+  els.tournamentTrend.textContent = tournamentStatsText(tournament);
+}
+
+function tournamentStatsText(tournament) {
+  if (!tournament?.history?.length) return tournament?.trend || "--";
+  const parts = [];
+  if (tournament.averageNet !== null && tournament.averageNet !== undefined) parts.push(`\u00d8 Netto ${tournament.averageNet}`);
+  if (tournament.bestNet !== null && tournament.bestNet !== undefined) parts.push(`Bestes Netto ${tournament.bestNet}`);
+  if (tournament.trend) parts.push(tournament.trend);
+  return parts.join(" \u00b7 ");
 }
 
 function renderOccupancyBars(occupancy) {
@@ -362,6 +399,7 @@ function renderSourceStatus() {
     ["Startzeiten", dashboardState.sourceStatus.teeTimes],
     ["Runde", dashboardState.sourceStatus.nextRound],
     ["Handicap", dashboardState.sourceStatus.handicap],
+    ["Turnier", dashboardState.sourceStatus.tournament],
   ].map(([label, status]) => {
     const chip = document.createElement("span");
     chip.className = isLiveSource(status) ? "source-chip live" : "source-chip offline";
@@ -394,6 +432,9 @@ function answerQuestion(question) {
   if (normalized.includes("scorecard") || normalized.includes("karte")) {
     return `Die Scorecard ist ${dashboardState.scorecard.status}. ${dashboardState.scorecard.summary || ""}`;
   }
+  if (normalized.includes("turnier") || normalized.includes("herrengolf") || normalized.includes("werner")) {
+    return dashboardState.tournament.summary || "Ich habe noch keine Turnierergebnisse geladen.";
+  }
   if (normalized.includes("wetter") || normalized.includes("regen") || normalized.includes("wind")) {
     return `Aktuell ${dashboardState.weather.summary.toLowerCase()}, ${dashboardState.weather.temperature}\u00b0C, Wind ${dashboardState.weather.windKmh} km/h und ${dashboardState.weather.rainChance}% Regenchance.`;
   }
@@ -406,7 +447,7 @@ function answerQuestion(question) {
   if (normalized.includes("golf") || normalized.includes("score")) {
     return `Der Golf-Score liegt heute bei ${score} von 10.`;
   }
-  return "Ich kann dir aktuell Wetter, Startzeiten, Platzbelegung, Handicap, Runde, Scorecard und Tages-Score beantworten.";
+  return "Ich kann dir aktuell Wetter, Startzeiten, Platzbelegung, Handicap, Runde, Scorecard, Turniere und Tages-Score beantworten.";
 }
 
 function askAssistant() {

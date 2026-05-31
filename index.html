@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Golf Command Center</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="dashboard" aria-label="Golf Command Center">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Golf Dashboard</p>
+          <h1>Golf Command Center</h1>
+          <p class="subtitle" id="clubName">Gut Apeld&ouml;r</p>
+        </div>
+        <div class="status-cluster" aria-label="Systemstatus">
+          <span id="clock">--:--</span>
+          <span id="syncStatus">Synchronisiert</span>
+        </div>
+      </header>
+
+      <section class="panel weather-panel" aria-labelledby="weather-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">W</span>
+          <h2 id="weather-title">Wetter & Wind</h2>
+        </div>
+        <div class="weather-widget">
+          <div class="weather-mark" id="weatherMark" aria-hidden="true">
+            <span class="sun-core"></span>
+            <span class="cloud-shape"></span>
+          </div>
+          <div class="weather-now">
+            <strong id="temperature">--&deg;C</strong>
+            <span id="weatherSummary">Lade Wetterdaten</span>
+          </div>
+        </div>
+        <dl class="weather-stats">
+          <div class="weather-stat wind-stat">
+            <dt>Wind</dt>
+            <dd id="wind">-- km/h</dd>
+          </div>
+          <div class="weather-stat rain-stat">
+            <dt>Regen</dt>
+            <dd id="rain">--%</dd>
+          </div>
+          <div class="weather-stat green-stat">
+            <dt>Green-Speed</dt>
+            <dd id="greenSpeed">--</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel occupancy-panel" aria-labelledby="occupancy-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">P</span>
+          <h2 id="occupancy-title">Restzeit-Belegung</h2>
+        </div>
+        <div class="large-metric">
+          <strong id="occupancy">--%</strong>
+          <span id="occupancyCaption">Noch buchbare Slots</span>
+        </div>
+        <p class="panel-detail" id="occupancyDetail">Details werden geladen</p>
+        <div class="bar-grid" id="occupancyBars" aria-hidden="true"></div>
+        <div class="occupancy-groups" id="occupancyGroups"></div>
+      </section>
+
+      <section class="panel handicap-panel" aria-labelledby="handicap-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">18</span>
+          <h2 id="handicap-title">Mein Handicap</h2>
+        </div>
+        <div class="large-metric accent">
+          <strong id="handicap">--</strong>
+          <span>Aktueller Index</span>
+        </div>
+        <dl class="metric-list compact">
+          <div>
+            <dt>Letzte Runde</dt>
+            <dd id="lastRound">--</dd>
+          </div>
+          <div>
+            <dt>Beste Runde</dt>
+            <dd id="bestRound">--</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="panel tee-panel" aria-labelledby="tee-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">T</span>
+          <h2 id="tee-title">N&auml;chste freie Startzeiten</h2>
+        </div>
+        <p class="tee-date" id="teeDateLabel">Heute</p>
+        <div class="tee-groups" id="teeTimes"></div>
+        <a class="panel-link" id="bookingLink" href="https://apeldoer.de/startzeiten/" target="_blank" rel="noreferrer">PC CADDIE Startzeiten</a>
+      </section>
+
+      <section class="panel round-panel" aria-labelledby="round-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">R</span>
+          <h2 id="round-title">N&auml;chste Runde</h2>
+        </div>
+        <p class="round-date" id="nextRoundDate">--</p>
+        <p class="round-meta" id="nextRoundMeta">--</p>
+      </section>
+
+      <section class="panel score-panel" aria-labelledby="score-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">S</span>
+          <h2 id="score-title">Heute Golfen?</h2>
+        </div>
+        <div class="score-ring" aria-label="Golf-Score des Tages">
+          <strong id="golfScore">--</strong>
+          <span>/10</span>
+        </div>
+        <p id="scoreReason">Berechne Empfehlung</p>
+        <p class="panel-detail" id="scorecardSummary">Scorecard wird geladen</p>
+        <div class="scorecard-grid" id="scorecardGrid" aria-label="Letzte Scorecard"></div>
+        <a class="panel-link" id="scorecardLink" href="https://apeldoer.de/golfanlage/scorecard/" target="_blank" rel="noreferrer">Online-Scorecard</a>
+      </section>
+
+      <section class="panel club-panel" aria-labelledby="club-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">i</span>
+          <h2 id="club-title">Club & Platz</h2>
+        </div>
+        <div class="club-card">
+          <p class="club-card-name" id="clubCardName">Gut Apeld&ouml;r</p>
+          <p class="club-card-location" id="clubCardLocation">Hennstedt, Dithmarschen</p>
+          <div class="course-status">
+            <span class="status-light" aria-hidden="true"></span>
+            <span id="courseStatus">Platz offen</span>
+          </div>
+          <a class="club-news" id="clubNewsLink" href="https://apeldoer.de/apeldoer-updates/" target="_blank" rel="noreferrer">
+            <span>Apeld&ouml;r Update</span>
+            <strong id="clubNewsTitle">Neueste Meldung laden</strong>
+          </a>
+          <a class="panel-link club-link" id="clubLink" href="https://apeldoer.de/startzeiten/" target="_blank" rel="noreferrer">Startzeiten &ouml;ffnen</a>
+        </div>
+      </section>
+
+      <section class="panel assistant-panel" aria-labelledby="assistant-title">
+        <div class="panel-title">
+          <span class="icon" aria-hidden="true">A</span>
+          <h2 id="assistant-title">Sprachassistent</h2>
+        </div>
+        <div class="assistant-row">
+          <input id="assistantInput" type="text" autocomplete="off" placeholder="Frage zum Golf-Tag stellen" />
+          <button id="askButton" type="button">Fragen</button>
+          <button id="voiceButton" type="button" aria-label="Spracheingabe starten">Mikro</button>
+        </div>
+        <p id="assistantAnswer" class="assistant-answer">Bereit f&uuml;r Fragen wie &bdquo;Wann ist die n&auml;chste freie Startzeit?&ldquo;</p>
+        <div id="sourceLine" class="source-line" aria-label="Datenquellenstatus">Datenquellen werden initialisiert</div>
+      </section>
+    </main>
+
+    <script src="config.js"></script>
+    <script src="services.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

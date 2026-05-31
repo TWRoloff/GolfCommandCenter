@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Golf Dashboard Admin</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="admin-shell" aria-label="Golf Dashboard Admin">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Lokale Daten</p>
+          <h1>Dashboard Admin</h1>
+          <p class="subtitle">Startzeiten und naechste Runde bis PC CADDIE verbunden ist</p>
+        </div>
+        <a class="panel-link" href="/">Dashboard</a>
+      </header>
+
+      <section class="panel">
+        <div class="admin-grid">
+          <label>
+            Platzbelegung %
+            <input id="occupancyInput" type="number" min="0" max="100" step="1" />
+          </label>
+          <label>
+            Freie Startzeiten
+            <input id="teeTimesInput" type="text" placeholder="08:50, 09:10, 09:40" />
+          </label>
+          <label>
+            Runden-Datum
+            <input id="roundDateInput" type="text" />
+          </label>
+          <label>
+            Runden-Zeit
+            <input id="roundTimeInput" type="text" />
+          </label>
+          <label class="wide">
+            Hinweis / Countdown
+            <input id="roundCountdownInput" type="text" />
+          </label>
+        </div>
+        <div class="assistant-row admin-actions">
+          <button id="saveOverrideButton" type="button">Speichern</button>
+          <a class="panel-link" href="/">Anzeigen</a>
+        </div>
+        <p id="adminStatus" class="assistant-answer">Bereit.</p>
+      </section>
+    </main>
+
+    <script src="admin.js"></script>
+  </body>
+</html>

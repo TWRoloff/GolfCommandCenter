@@ -1,0 +1,14 @@
+{
+  "occupancy": 48,
+  "teeTimes": ["08:50", "09:10", "09:40", "10:30"],
+  "nextRound": {
+    "date": "Sonntag, 7. Juni",
+    "time": "10:20 Uhr",
+    "countdown": "Noch 7 Tage"
+  },
+  "handicap": {
+    "index": 18.3,
+    "lastRound": "91 Schlaege",
+    "bestRound": "84 Schlaege"
+  }
+}

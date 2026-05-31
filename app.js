@@ -66,6 +66,7 @@
 };
 
 const els = {
+  currentDate: document.querySelector("#currentDate"),
   clock: document.querySelector("#clock"),
   syncStatus: document.querySelector("#syncStatus"),
   clubName: document.querySelector("#clubName"),
@@ -122,6 +123,11 @@ function calculateGolfScore(state) {
 }
 
 function updateClock() {
+  els.currentDate.textContent = new Intl.DateTimeFormat("de-DE", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+  }).format(new Date());
   els.clock.textContent = new Intl.DateTimeFormat("de-DE", {
     hour: "2-digit",
     minute: "2-digit",

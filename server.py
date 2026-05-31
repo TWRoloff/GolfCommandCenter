@@ -176,8 +176,8 @@ def fetch_weather(club):
         {
             "latitude": latitude,
             "longitude": longitude,
-            "current": "temperature_2m,weather_code,wind_speed_10m,precipitation",
-            "hourly": "precipitation_probability",
+            "current": "temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m",
+            "hourly": "precipitation_probability,wind_speed_10m,relative_humidity_2m",
             "forecast_days": "1",
             "timezone": "Europe/Berlin",
         }
@@ -190,16 +190,19 @@ def fetch_weather(club):
 
         rain_chance = find_current_rain_chance(data)
         current = data["current"]
+        golf_facts = estimate_golf_weather_facts(current, rain_chance, data)
         return {
             "temperature": round(current["temperature_2m"]),
             "summary": weather_summary(current["weather_code"]),
             "windKmh": round(current["wind_speed_10m"]),
+            "windDirection": wind_direction_label(current.get("wind_direction_10m")),
             "rainChance": rain_chance,
             "greenSpeed": estimate_green_speed(
                 current["wind_speed_10m"],
                 rain_chance,
                 current["precipitation"],
             ),
+            "playFacts": golf_facts,
         }
     except Exception as error:
         print(f"Weather provider failed: {error}")
@@ -207,8 +210,14 @@ def fetch_weather(club):
             "temperature": 21,
             "summary": "Wetter offline",
             "windKmh": 12,
+            "windDirection": "variabel",
             "rainChance": 5,
             "greenSpeed": "mittel-schnell",
+            "playFacts": [
+                {"label": "Carry", "value": "neutral"},
+                {"label": "Putten", "value": "normale Geschwindigkeit"},
+                {"label": "Regenfenster", "value": "nicht verfügbar"},
+            ],
         }
 
 
@@ -250,6 +259,67 @@ def estimate_green_speed(wind_kmh, rain_chance, precipitation):
     if wind_kmh > 20 and rain_chance < 20:
         return "schnell"
     return "mittel-schnell"
+
+
+def estimate_golf_weather_facts(current, rain_chance, data):
+    temperature = current.get("temperature_2m", 20)
+    wind_kmh = current.get("wind_speed_10m", 0)
+    humidity = current.get("relative_humidity_2m")
+    precipitation = current.get("precipitation", 0)
+    next_rain = next_rain_window(data)
+
+    return [
+        {"label": "Carry", "value": carry_effect_label(temperature, wind_kmh)},
+        {"label": "Putten", "value": putt_effect_label(rain_chance, precipitation, humidity)},
+        {"label": "Windrichtung", "value": wind_direction_label(current.get("wind_direction_10m"))},
+        {"label": "Regenfenster", "value": next_rain},
+    ]
+
+
+def carry_effect_label(temperature, wind_kmh):
+    if wind_kmh >= 28:
+        return "deutlich windanfällig"
+    if temperature <= 8:
+        return "kürzer durch Kälte"
+    if temperature >= 24 and wind_kmh < 18:
+        return "etwas länger"
+    if wind_kmh >= 18:
+        return "Wind beachten"
+    return "neutral"
+
+
+def putt_effect_label(rain_chance, precipitation, humidity):
+    if precipitation > 0 or rain_chance >= 60:
+        return "langsamer, feuchter"
+    if humidity is not None and humidity >= 85:
+        return "leicht gebremst"
+    if rain_chance <= 15:
+        return "rollt sauber"
+    return "normal"
+
+
+def next_rain_window(data):
+    current_time = data.get("current", {}).get("time")
+    hourly = data.get("hourly", {})
+    times = hourly.get("time", [])
+    rain_values = hourly.get("precipitation_probability", [])
+    if not current_time or not times or not rain_values:
+        return "nicht verfügbar"
+
+    start_index = times.index(current_time) if current_time in times else 0
+    for index in range(start_index, min(start_index + 7, len(times), len(rain_values))):
+        if rain_values[index] >= 50:
+            hour = times[index].split("T")[-1][:5]
+            return f"ab {hour} möglich"
+    return "6h trocken"
+
+
+def wind_direction_label(degrees):
+    if degrees is None:
+        return "variabel"
+    directions = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"]
+    index = round((degrees % 360) / 45) % 8
+    return directions[index]
 
 
 def fetch_club_update(club):

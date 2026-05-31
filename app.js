@@ -4,8 +4,10 @@
     temperature: 21,
     summary: "Sonnig",
     windKmh: 12,
+    windDirection: "variabel",
     rainChance: 5,
     greenSpeed: "mittel-schnell",
+    playFacts: [],
   },
   occupancy: 60,
   occupancyDetails: {
@@ -64,6 +66,7 @@ const els = {
   wind: document.querySelector("#wind"),
   rain: document.querySelector("#rain"),
   greenSpeed: document.querySelector("#greenSpeed"),
+  golfFacts: document.querySelector("#golfFacts"),
   weatherMark: document.querySelector("#weatherMark"),
   occupancy: document.querySelector("#occupancy"),
   occupancyCaption: document.querySelector("#occupancyCaption"),
@@ -86,6 +89,7 @@ const els = {
   tournamentResult: document.querySelector("#tournamentResult"),
   tournamentLatest: document.querySelector("#tournamentLatest"),
   tournamentTrend: document.querySelector("#tournamentTrend"),
+  tournamentChart: document.querySelector("#tournamentChart"),
   clubCardName: document.querySelector("#clubCardName"),
   clubCardLocation: document.querySelector("#clubCardLocation"),
   courseStatus: document.querySelector("#courseStatus"),
@@ -217,6 +221,7 @@ function render() {
   els.wind.textContent = `${weather.windKmh} km/h`;
   els.rain.textContent = `${weather.rainChance}%`;
   els.greenSpeed.textContent = weather.greenSpeed;
+  els.golfFacts.replaceChildren(...renderGolfFacts(weather));
   els.occupancy.textContent = `${dashboardState.occupancy}%`;
   els.occupancyCaption.textContent = occupancyCaption(dashboardState.occupancyDetails);
   els.occupancyDetail.textContent = formatOccupancyDetail(dashboardState.occupancyDetails);
@@ -252,6 +257,31 @@ function renderTournament(tournament) {
   els.tournamentResult.textContent = latest ? "Netto-Punkte" : "Netto";
   els.tournamentLatest.textContent = latest ? tournament.summary : tournament?.status || "--";
   els.tournamentTrend.textContent = tournamentStatsText(tournament);
+  els.tournamentChart.replaceChildren(renderTournamentChart(tournament?.history || []));
+}
+
+function renderGolfFacts(weather) {
+  const facts = weather.playFacts?.length
+    ? weather.playFacts
+    : [
+        { label: "Carry", value: "neutral" },
+        { label: "Putten", value: weather.greenSpeed || "normal" },
+        { label: "Windrichtung", value: weather.windDirection || "variabel" },
+      ];
+
+  return facts.slice(0, 4).map((fact) => {
+    const item = document.createElement("div");
+    item.className = "golf-fact";
+
+    const label = document.createElement("span");
+    label.textContent = fact.label;
+
+    const value = document.createElement("strong");
+    value.textContent = fact.value;
+
+    item.append(label, value);
+    return item;
+  });
 }
 
 function tournamentStatsText(tournament) {
@@ -261,6 +291,60 @@ function tournamentStatsText(tournament) {
   if (tournament.bestNet !== null && tournament.bestNet !== undefined) parts.push(`Bestes Netto ${tournament.bestNet}`);
   if (tournament.trend) parts.push(tournament.trend);
   return parts.join(" \u00b7 ");
+}
+
+function renderTournamentChart(history) {
+  const chart = document.createElement("div");
+  chart.className = "spark-chart";
+
+  const values = history
+    .filter((item) => Number.isFinite(item.net) && item.net >= 0 && item.net <= 60)
+    .slice(0, 5)
+    .reverse();
+
+  if (values.length < 2) {
+    chart.textContent = "Noch nicht genug Daten für einen Verlauf";
+    chart.classList.add("empty");
+    return chart;
+  }
+
+  const width = 240;
+  const height = 72;
+  const padding = 10;
+  const nets = values.map((item) => item.net);
+  const min = Math.min(...nets, 30);
+  const max = Math.max(...nets, 40);
+  const range = Math.max(1, max - min);
+  const points = values.map((item, index) => {
+    const x = padding + (index * (width - padding * 2)) / Math.max(1, values.length - 1);
+    const y = height - padding - ((item.net - min) / range) * (height - padding * 2);
+    return { x, y, item };
+  });
+
+  chart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Netto-Verlauf">
+      <polyline points="${points.map((point) => `${point.x},${point.y}`).join(" ")}"></polyline>
+      ${points
+        .map(
+          (point) => `
+            <g>
+              <circle cx="${point.x}" cy="${point.y}" r="4"></circle>
+              <text x="${point.x}" y="${Math.max(12, point.y - 8)}">${point.item.net}</text>
+            </g>
+          `,
+        )
+        .join("")}
+    </svg>
+    <div class="spark-labels">
+      ${values.map((item) => `<span>${shortDate(item.date)}</span>`).join("")}
+    </div>
+  `;
+  return chart;
+}
+
+function shortDate(date) {
+  const match = String(date || "").match(/^(\d{2})\.(\d{2})\./);
+  return match ? `${match[1]}.${match[2]}.` : "";
 }
 
 function renderOccupancyBars(occupancy) {

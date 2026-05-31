@@ -317,6 +317,36 @@ h2 {
   font-size: 1.02rem;
 }
 
+.golf-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.golf-fact {
+  min-height: 58px;
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  padding: 9px 10px;
+  border: 1px solid rgba(49, 65, 51, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.golf-fact span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.golf-fact strong {
+  color: var(--text);
+  font-size: 0.86rem;
+  line-height: 1.15;
+}
+
 .metric-list div {
   display: flex;
   justify-content: space-between;
@@ -355,6 +385,59 @@ dd {
 
 .tournament-metric strong {
   color: var(--blue);
+}
+
+.tournament-chart {
+  margin-top: 12px;
+}
+
+.spark-chart {
+  padding: 8px 10px 6px;
+  border: 1px solid rgba(49, 65, 51, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.spark-chart.empty {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.spark-chart svg {
+  width: 100%;
+  height: 72px;
+  display: block;
+}
+
+.spark-chart polyline {
+  fill: none;
+  stroke: var(--blue);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.spark-chart circle {
+  fill: var(--panel);
+  stroke: var(--green);
+  stroke-width: 2;
+}
+
+.spark-chart text {
+  fill: var(--text);
+  font-size: 0.62rem;
+  font-weight: 850;
+  text-anchor: middle;
+}
+
+.spark-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .bar-grid {

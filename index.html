@@ -164,19 +164,28 @@
         </div>
       </section>
 
-      <section class="panel assistant-panel" aria-labelledby="assistant-title">
+      <section class="panel dream-panel" aria-labelledby="dream-title">
         <div class="panel-title">
-          <span class="icon" aria-hidden="true">A</span>
-          <h2 id="assistant-title">Sprachassistent</h2>
+          <span class="icon" aria-hidden="true">B</span>
+          <h2 id="dream-title">Traumrunde</h2>
         </div>
-        <div class="assistant-row">
-          <input id="assistantInput" type="text" autocomplete="off" placeholder="Frage zum Golf-Tag stellen" />
-          <button id="askButton" type="button">Fragen</button>
-          <button id="voiceButton" type="button" aria-label="Spracheingabe starten">Mikro</button>
+        <div class="dream-layout">
+          <div class="large-metric accent dream-score">
+            <strong id="dreamScore">--</strong>
+            <span id="dreamMeta">Best-of-Runde</span>
+          </div>
+          <div class="best-hole">
+            <span>Bestes Loch</span>
+            <strong id="bestHole">--</strong>
+            <p id="bestHoleMeta">Scorecards werden geladen</p>
+          </div>
         </div>
-        <p id="assistantAnswer" class="assistant-answer">Bereit f&uuml;r Fragen wie &bdquo;Wann ist die n&auml;chste freie Startzeit?&ldquo;</p>
-        <div id="sourceLine" class="source-line" aria-label="Datenquellenstatus">Datenquellen werden initialisiert</div>
+        <div class="dream-grid" id="dreamGrid" aria-label="Bester Score pro Loch"></div>
       </section>
+
+      <footer class="source-footer">
+        <div id="sourceLine" class="source-line" aria-label="Datenquellenstatus">Datenquellen werden initialisiert</div>
+      </footer>
     </main>
 
     <script src="config.js"></script>

@@ -41,6 +41,15 @@
     bestNet: null,
     trend: "Noch keine Auswertung",
   },
+  dreamRound: {
+    summary: "Traumrunde wird geladen",
+    totalScore: null,
+    totalPar: null,
+    scoreDiff: null,
+    holesPlayed: 0,
+    bestHole: null,
+    holes: [],
+  },
   clubUpdate: {
     title: "Apeld\u00f6r Updates \u00f6ffnen",
     url: "https://apeldoer.de/apeldoer-updates/",
@@ -90,16 +99,17 @@ const els = {
   tournamentLatest: document.querySelector("#tournamentLatest"),
   tournamentTrend: document.querySelector("#tournamentTrend"),
   tournamentChart: document.querySelector("#tournamentChart"),
+  dreamScore: document.querySelector("#dreamScore"),
+  dreamMeta: document.querySelector("#dreamMeta"),
+  bestHole: document.querySelector("#bestHole"),
+  bestHoleMeta: document.querySelector("#bestHoleMeta"),
+  dreamGrid: document.querySelector("#dreamGrid"),
   clubCardName: document.querySelector("#clubCardName"),
   clubCardLocation: document.querySelector("#clubCardLocation"),
   courseStatus: document.querySelector("#courseStatus"),
   clubLink: document.querySelector("#clubLink"),
   clubNewsLink: document.querySelector("#clubNewsLink"),
   clubNewsTitle: document.querySelector("#clubNewsTitle"),
-  assistantInput: document.querySelector("#assistantInput"),
-  assistantAnswer: document.querySelector("#assistantAnswer"),
-  askButton: document.querySelector("#askButton"),
-  voiceButton: document.querySelector("#voiceButton"),
   bookingLink: document.querySelector("#bookingLink"),
   scorecardLink: document.querySelector("#scorecardLink"),
 };
@@ -177,6 +187,7 @@ function applyDashboardData(data) {
   dashboardState.sourceStatus.tournament = data.sources?.tournament || data.tournament?.source || "API";
   dashboardState.scorecard = data.scorecard || dashboardState.scorecard;
   dashboardState.tournament = data.tournament || dashboardState.tournament;
+  dashboardState.dreamRound = data.dreamRound || dashboardState.dreamRound;
   dashboardState.clubInfo = [];
 }
 
@@ -234,6 +245,7 @@ function render() {
   els.scoreReason.textContent = Number(score) >= 8 ? "Perfekter Golftag" : "Spielbar, aber Bedingungen pr\u00fcfen";
   els.scorecardSummary.textContent = dashboardState.scorecard.summary || dashboardState.scorecard.status || "Scorecard bereit";
   renderTournament(dashboardState.tournament);
+  renderDreamRound(dashboardState.dreamRound);
   els.teeDateLabel.textContent = teeDateText(dashboardState.teeTimeDateLabel);
   els.bookingLink.href = dashboardState.club.urls.teeTimes;
   els.scorecardLink.href = dashboardState.scorecard.url || dashboardState.club.urls.scorecard;
@@ -258,6 +270,55 @@ function renderTournament(tournament) {
   els.tournamentLatest.textContent = latest ? tournament.summary : tournament?.status || "--";
   els.tournamentTrend.textContent = tournamentStatsText(tournament);
   els.tournamentChart.replaceChildren(renderTournamentChart(tournament?.history || []));
+}
+
+function renderDreamRound(dreamRound) {
+  const holes = dreamRound?.holes || [];
+  const totalScore = dreamRound?.totalScore;
+
+  els.dreamScore.textContent = totalScore ?? "--";
+  els.dreamMeta.textContent = dreamRoundMeta(dreamRound);
+
+  const bestHole = dreamRound?.bestHole;
+  els.bestHole.textContent = bestHole ? `Loch ${bestHole.hole}: ${bestHole.score}` : "--";
+  els.bestHoleMeta.textContent = bestHole ? bestHoleText(bestHole) : "Noch keine Lochdaten gefunden";
+  els.dreamGrid.replaceChildren(...holes.map(renderDreamHole));
+}
+
+function dreamRoundMeta(dreamRound) {
+  if (!dreamRound?.holesPlayed) return "Best-of-Runde";
+  const diff = dreamRound.scoreDiff;
+  const diffText = diff === null || diff === undefined ? "" : ` · ${formatDiff(diff)} zu Par`;
+  return `${dreamRound.holesPlayed} Löcher${diffText}`;
+}
+
+function bestHoleText(hole) {
+  const diff = hole.diff === null || hole.diff === undefined ? "" : `${formatDiff(hole.diff)} zu Par`;
+  return [diff, hole.date, hole.course].filter(Boolean).join(" · ");
+}
+
+function renderDreamHole(hole) {
+  const item = document.createElement("div");
+  item.className = `dream-hole ${scoreClass(hole.diff)}`;
+
+  const label = document.createElement("span");
+  label.textContent = `Loch ${hole.hole}`;
+
+  const value = document.createElement("strong");
+  value.textContent = hole.score;
+
+  const meta = document.createElement("small");
+  meta.textContent = hole.diff === null || hole.diff === undefined ? "Bestwert" : formatDiff(hole.diff);
+
+  item.append(label, value, meta);
+  return item;
+}
+
+function scoreClass(diff) {
+  if (diff === null || diff === undefined) return "";
+  if (diff < 0) return "under";
+  if (diff === 0) return "par";
+  return "over";
 }
 
 function renderGolfFacts(weather) {
@@ -533,58 +594,6 @@ function isLiveSource(status) {
   return text.includes("live") || text.includes("verbunden");
 }
 
-function answerQuestion(question) {
-  const normalized = question.toLowerCase();
-  const score = calculateGolfScore(dashboardState);
-
-  if (normalized.includes("startzeit") || normalized.includes("tee")) {
-    return `Die n\u00e4chste freie Startzeit ist ${dashboardState.teeTimes[0]} Uhr. Buchen geht \u00fcber PC CADDIE Online.`;
-  }
-  if (normalized.includes("scorecard") || normalized.includes("karte")) {
-    return `Die Scorecard ist ${dashboardState.scorecard.status}. ${dashboardState.scorecard.summary || ""}`;
-  }
-  if (normalized.includes("turnier") || normalized.includes("herrengolf") || normalized.includes("werner")) {
-    return dashboardState.tournament.summary || "Ich habe noch keine Turnierergebnisse geladen.";
-  }
-  if (normalized.includes("wetter") || normalized.includes("regen") || normalized.includes("wind")) {
-    return `Aktuell ${dashboardState.weather.summary.toLowerCase()}, ${dashboardState.weather.temperature}\u00b0C, Wind ${dashboardState.weather.windKmh} km/h und ${dashboardState.weather.rainChance}% Regenchance.`;
-  }
-  if (normalized.includes("handicap") || normalized.includes("runde")) {
-    return `Dein Handicap liegt bei ${dashboardState.handicap.index.toLocaleString("de-DE")}. Die n\u00e4chste Runde ist ${dashboardState.nextRound.date} um ${dashboardState.nextRound.time}.`;
-  }
-  if (normalized.includes("platz") || normalized.includes("belegung")) {
-    return `Im aktuell sichtbaren restlichen Buchungszeitraum sind ${dashboardState.occupancy}% der Slots belegt.`;
-  }
-  if (normalized.includes("golf") || normalized.includes("score")) {
-    return `Der Golf-Score liegt heute bei ${score} von 10.`;
-  }
-  return "Ich kann dir aktuell Wetter, Startzeiten, Platzbelegung, Handicap, Runde, Scorecard, Turniere und Tages-Score beantworten.";
-}
-
-function askAssistant() {
-  const question = els.assistantInput.value.trim();
-  if (!question) return;
-  els.assistantAnswer.textContent = answerQuestion(question);
-}
-
-function startVoiceInput() {
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    els.assistantAnswer.textContent = "Spracheingabe ist in diesem Browser nicht verf\u00fcgbar. Texteingabe funktioniert.";
-    return;
-  }
-
-  const recognition = new SpeechRecognition();
-  recognition.lang = "de-DE";
-  recognition.interimResults = false;
-  recognition.addEventListener("result", (event) => {
-    const transcript = event.results[0][0].transcript;
-    els.assistantInput.value = transcript;
-    els.assistantAnswer.textContent = answerQuestion(transcript);
-  });
-  recognition.start();
-}
-
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
@@ -592,12 +601,6 @@ function randomInt(min, max) {
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
-
-els.askButton.addEventListener("click", askAssistant);
-els.assistantInput.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") askAssistant();
-});
-els.voiceButton.addEventListener("click", startVoiceInput);
 
 updateClock();
 render();

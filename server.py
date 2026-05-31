@@ -90,6 +90,7 @@ def build_dashboard_payload():
     scorecard_data["list"] = scorecard_list["entries"]
     scorecard_data["latest"] = scorecard_list["latest"]
     scorecard_data["best"] = best_scorecard(scorecard_list["entries"])
+    dream_round = build_dream_round(scorecard_list["entries"])
     if scorecard_list["latest"]:
         latest_detail = scorecard_list["latest"].get("detail") or {}
         score_label = latest_detail.get("scoreLabel")
@@ -124,6 +125,7 @@ def build_dashboard_payload():
         "handicap": handicap_data,
         "scorecard": scorecard_data,
         "tournament": tournament_data,
+        "dreamRound": dream_round,
         "sources": {
             "weather": "Open-Meteo live",
             "teeTimes": tee_time_data["source"],
@@ -151,6 +153,70 @@ def best_scorecard(entries):
             entry["detail"].get("totalScore", 999),
         ),
     )
+
+
+def build_dream_round(entries):
+    best_by_hole = {}
+    best_hole = None
+
+    for entry in entries:
+        detail = entry.get("detail") or {}
+        pars_by_hole = {item["hole"]: item["par"] for item in detail.get("pars", [])}
+        for score_item in detail.get("scores", []):
+            hole = score_item.get("hole")
+            score = score_item.get("score")
+            par = pars_by_hole.get(hole)
+            if not hole or not score:
+                continue
+
+            diff = score - par if par else None
+            candidate = {
+                "hole": hole,
+                "score": score,
+                "par": par,
+                "diff": diff,
+                "date": entry.get("date", ""),
+                "course": entry.get("course", ""),
+                "tee": entry.get("tee", ""),
+            }
+
+            current = best_by_hole.get(hole)
+            if not current or score < current["score"]:
+                best_by_hole[hole] = candidate
+
+            if diff is not None and (
+                not best_hole
+                or diff < best_hole["diff"]
+                or (diff == best_hole["diff"] and score < best_hole["score"])
+            ):
+                best_hole = candidate
+
+    holes = [best_by_hole[key] for key in sorted(best_by_hole)]
+    total_score = sum(item["score"] for item in holes)
+    total_par = sum(item["par"] for item in holes if item.get("par"))
+    score_diff = total_score - total_par if total_par else None
+
+    return {
+        "source": "PC CADDIE live" if holes else "Keine Scorecards",
+        "summary": dream_round_summary(total_score, total_par, len(holes)),
+        "totalScore": total_score if holes else None,
+        "totalPar": total_par if total_par else None,
+        "scoreDiff": score_diff,
+        "holesPlayed": len(holes),
+        "bestHole": best_hole,
+        "holes": holes,
+    }
+
+
+def dream_round_summary(total_score, total_par, holes_count):
+    if not holes_count:
+        return "Noch keine Lochdaten gefunden"
+    label = f"Traumrunde: {total_score} Schläge über {holes_count} Löcher"
+    if total_par:
+        diff = total_score - total_par
+        sign = "+" if diff > 0 else ""
+        label = f"{label}, {sign}{diff} zu Par"
+    return label
 
 
 def read_override():

@@ -716,47 +716,90 @@ dd {
   font-weight: 800;
 }
 
-.assistant-panel {
+.dream-panel {
   grid-column: 1 / -1;
 }
 
-.assistant-row {
+.dream-layout {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 10px;
+  grid-template-columns: minmax(170px, 0.35fr) 1fr;
+  gap: 14px;
+  align-items: stretch;
 }
 
-input,
-button {
-  min-height: 46px;
+.dream-score {
+  min-height: 112px;
+  display: grid;
+  align-content: center;
+}
+
+.best-hole {
+  min-height: 112px;
+  display: grid;
+  align-content: center;
+  gap: 5px;
+  padding: 14px;
+  border: 1px solid rgba(49, 65, 51, 0.78);
   border-radius: 8px;
-  border: 1px solid var(--line);
-  font: inherit;
+  background: rgba(255, 255, 255, 0.035);
 }
 
-input {
-  width: 100%;
-  padding: 0 14px;
-  color: var(--text);
-  background: rgba(255, 255, 255, 0.05);
-}
-
-button {
-  padding: 0 16px;
-  color: #0d160d;
-  background: var(--green);
+.best-hole span,
+.best-hole p {
+  color: var(--muted);
   font-weight: 800;
-  cursor: pointer;
 }
 
-button:last-child {
-  color: var(--text);
-  background: var(--panel-2);
+.best-hole strong {
+  color: var(--green);
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  line-height: 1;
 }
 
-.assistant-answer {
+.dream-grid {
+  display: grid;
+  grid-template-columns: repeat(9, minmax(0, 1fr));
+  gap: 8px;
   margin-top: 12px;
-  min-height: 22px;
+}
+
+.dream-hole {
+  min-height: 74px;
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border: 1px solid rgba(49, 65, 51, 0.82);
+  border-radius: 8px;
+  background: rgba(13, 22, 13, 0.28);
+}
+
+.dream-hole span,
+.dream-hole small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.dream-hole strong {
+  color: var(--text);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.dream-hole.under strong,
+.dream-hole.under small {
+  color: var(--green);
+}
+
+.dream-hole.par strong,
+.dream-hole.par small {
+  color: var(--blue);
+}
+
+.dream-hole.over strong,
+.dream-hole.over small {
+  color: var(--yellow);
 }
 
 .admin-grid {
@@ -784,9 +827,13 @@ button:last-child {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 8px;
   color: var(--muted);
   font-size: 0.86rem;
+}
+
+.source-footer {
+  grid-column: 1 / -1;
+  padding: 0 6px 10px;
 }
 
 .source-chip {
@@ -822,15 +869,20 @@ button:last-child {
   }
 
   .weather-panel,
-  .assistant-panel,
+  .dream-panel,
+  .source-footer,
   .topbar {
     grid-column: auto;
   }
 
   .topbar,
-  .assistant-row {
+  .dream-layout {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .dream-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .status-cluster {

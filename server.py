@@ -174,6 +174,7 @@ def build_dream_round(entries, tournament_data=None):
             "scoreDiff": None,
             "holesPlayed": 0,
             "course": "",
+            "dateLabel": "",
             "bestHole": None,
             "holes": [],
         }
@@ -230,6 +231,7 @@ def build_dream_round_group(course, entries):
     total_score = sum(item["score"] for item in holes)
     total_par = sum(item["par"] for item in holes if item.get("par"))
     score_diff = total_score - total_par if total_par else None
+    date_label = dream_round_date_label(holes)
 
     return {
         "source": "PC CADDIE live" if holes else "Keine Scorecards",
@@ -239,6 +241,7 @@ def build_dream_round_group(course, entries):
         "scoreDiff": score_diff,
         "holesPlayed": len(holes),
         "course": course,
+        "dateLabel": date_label,
         "bestHole": best_hole,
         "holes": holes,
     }
@@ -272,6 +275,23 @@ def dream_round_summary(total_score, total_par, holes_count):
         sign = "+" if diff > 0 else ""
         label = f"{label}, {sign}{diff} zu Par"
     return label
+
+
+def dream_round_date_label(holes):
+    dates = sorted({hole.get("date") for hole in holes if hole.get("date")}, key=german_date_sort_key)
+    if not dates:
+        return ""
+    if len(dates) == 1:
+        return dates[0]
+    return f"{dates[0]} bis {dates[-1]}"
+
+
+def german_date_sort_key(value):
+    match = re.match(r"(\d{2})\.(\d{2})\.(\d{4})", value or "")
+    if not match:
+        return value or ""
+    day, month, year = match.groups()
+    return f"{year}-{month}-{day}"
 
 
 def read_override():

@@ -103,7 +103,6 @@ const els = {
   dreamMeta: document.querySelector("#dreamMeta"),
   bestHole: document.querySelector("#bestHole"),
   bestHoleMeta: document.querySelector("#bestHoleMeta"),
-  dreamGrid: document.querySelector("#dreamGrid"),
   clubCardName: document.querySelector("#clubCardName"),
   clubCardLocation: document.querySelector("#clubCardLocation"),
   courseStatus: document.querySelector("#courseStatus"),
@@ -273,7 +272,6 @@ function renderTournament(tournament) {
 }
 
 function renderDreamRound(dreamRound) {
-  const holes = dreamRound?.holes || [];
   const totalScore = dreamRound?.totalScore;
 
   els.dreamScore.textContent = totalScore ?? "--";
@@ -282,36 +280,19 @@ function renderDreamRound(dreamRound) {
   const bestHole = dreamRound?.bestHole;
   els.bestHole.textContent = bestHole ? `Loch ${bestHole.hole}: ${bestHole.score}` : "--";
   els.bestHoleMeta.textContent = bestHole ? bestHoleText(bestHole) : "Noch keine Lochdaten gefunden";
-  els.dreamGrid.replaceChildren(...holes.map(renderDreamHole));
 }
 
 function dreamRoundMeta(dreamRound) {
   if (!dreamRound?.holesPlayed) return "Best-of-Runde";
   const diff = dreamRound.scoreDiff;
   const diffText = diff === null || diff === undefined ? "" : ` · ${formatDiff(diff)} zu Par`;
-  return `${dreamRound.holesPlayed} Löcher${diffText}`;
+  const dateText = dreamRound.dateLabel ? ` · aus ${dreamRound.dateLabel}` : "";
+  return `${dreamRound.holesPlayed} Löcher${diffText}${dateText}`;
 }
 
 function bestHoleText(hole) {
   const diff = hole.diff === null || hole.diff === undefined ? "" : `${formatDiff(hole.diff)} zu Par`;
   return [diff, hole.date, hole.course].filter(Boolean).join(" · ");
-}
-
-function renderDreamHole(hole) {
-  const item = document.createElement("div");
-  item.className = `dream-hole ${scoreClass(hole.diff)}`;
-
-  const label = document.createElement("span");
-  label.textContent = `Loch ${hole.hole}`;
-
-  const value = document.createElement("strong");
-  value.textContent = hole.score;
-
-  const meta = document.createElement("small");
-  meta.textContent = hole.diff === null || hole.diff === undefined ? "Bestwert" : formatDiff(hole.diff);
-
-  item.append(label, value, meta);
-  return item;
 }
 
 function scoreClass(diff) {

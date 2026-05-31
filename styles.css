@@ -756,52 +756,6 @@ dd {
   line-height: 1;
 }
 
-.dream-grid {
-  display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.dream-hole {
-  min-height: 74px;
-  display: grid;
-  place-items: center;
-  gap: 2px;
-  padding: 8px 4px;
-  border: 1px solid rgba(49, 65, 51, 0.82);
-  border-radius: 8px;
-  background: rgba(13, 22, 13, 0.28);
-}
-
-.dream-hole span,
-.dream-hole small {
-  color: var(--muted);
-  font-size: 0.68rem;
-  font-weight: 850;
-}
-
-.dream-hole strong {
-  color: var(--text);
-  font-size: 1.35rem;
-  line-height: 1;
-}
-
-.dream-hole.under strong,
-.dream-hole.under small {
-  color: var(--green);
-}
-
-.dream-hole.par strong,
-.dream-hole.par small {
-  color: var(--blue);
-}
-
-.dream-hole.over strong,
-.dream-hole.over small {
-  color: var(--yellow);
-}
-
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -879,10 +833,6 @@ dd {
   .dream-layout {
     grid-template-columns: 1fr;
     display: grid;
-  }
-
-  .dream-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .status-cluster {

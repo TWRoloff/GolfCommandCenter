@@ -21,14 +21,19 @@ const WEATHER_CODES = {
 
 window.DashboardServices = {
   async fetchDashboard() {
-    try {
-      const response = await fetch("/api/dashboard", { cache: "no-store" });
-      if (!response.ok) throw new Error(`Dashboard HTTP ${response.status}`);
-      return await response.json();
-    } catch (error) {
-      console.warn("Local dashboard API unavailable", error);
-      return null;
+    const endpoints = ["api/dashboard", `data/dashboard.json?v=${Date.now()}`];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await fetch(endpoint, { cache: "no-store" });
+        if (!response.ok) throw new Error(`Dashboard HTTP ${response.status}`);
+        return await response.json();
+      } catch (error) {
+        console.warn(`Dashboard source unavailable: ${endpoint}`, error);
+      }
     }
+
+    return null;
   },
 
   async fetchWeather(club) {

@@ -4,3 +4,4 @@ server.log
 server.out.log
 server.err.log
 .env
+dist/

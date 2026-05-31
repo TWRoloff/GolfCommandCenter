@@ -96,6 +96,48 @@ refresh: {
 }
 ```
 
+## GitHub Pages Betrieb
+
+Fuer ein iPad in einem anderen Netzwerk kann das Dashboard auch statisch ueber GitHub Pages laufen. Dabei laeuft kein dauerhafter Server: GitHub Actions loggt sich regelmaessig serverseitig bei PC CADDIE ein, erzeugt `data/dashboard.json` und veroeffentlicht die fertige Anzeige auf GitHub Pages.
+
+Wichtig: GitHub Pages ist dann die Anzeige, GitHub Actions ist der Datensammler. Die PC-CADDIE-Zugangsdaten gehoeren nur in GitHub Secrets, nie in Dateien im Repo.
+
+Hinweis zur Privatsphaere: Je nach GitHub-Plan ist die Pages-Seite oeffentlich erreichbar, auch wenn das Repo privat ist. Die Action veroeffentlicht deshalb nur fertige Dashboard-Daten, aber keine Passwoerter, Cookies oder Session-IDs.
+
+1. In GitHub unter `Settings > Secrets and variables > Actions` diese Repository Secrets anlegen:
+
+```text
+PCCADDIE_CLUB_ID=0492321
+PCCADDIE_USERNAME=dein-benutzer
+PCCADDIE_PASSWORD=dein-passwort
+```
+
+2. Unter `Settings > Pages` als Source `GitHub Actions` auswaehlen.
+
+3. Code nach `main` pushen. Der Workflow `.github/workflows/pages.yml` baut danach automatisch die statische Version und deployed sie auf Pages.
+
+4. Der Workflow laeuft ausserdem alle 10 Minuten:
+
+```yaml
+schedule:
+  - cron: "*/10 * * * *"
+```
+
+GitHub kann geplante Workflows etwas verzoegert starten. Fuer ein Vater-iPad-Dashboard ist das normalerweise okay: Die Anzeige ist nicht sekundengenau live, aber regelmaessig frisch. Lokal mit `python server.py` bleibt weiterhin der Live-Modus ueber `/api/dashboard` aktiv.
+
+Manuell testen:
+
+```bash
+PCCADDIE_CLUB_ID=0492321 PCCADDIE_USERNAME=dein-benutzer PCCADDIE_PASSWORD=dein-passwort python scripts/export_static_dashboard.py
+python -m http.server 4174 -d dist
+```
+
+Dann oeffnen:
+
+```text
+http://127.0.0.1:4174/
+```
+
 ## Raspberry Pi Betrieb
 
 Empfohlen fuer ein dauerhaftes LCD-Dashboard: Raspberry Pi 4 oder Raspberry Pi 5 mit Raspberry Pi OS Desktop und Chromium im Kiosk-Modus. Ein Pi Zero 2 W kann funktionieren, ist fuer Chromium aber deutlich knapper.

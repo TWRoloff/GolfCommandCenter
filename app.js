@@ -271,7 +271,15 @@ function renderGolfFacts(weather) {
 
   return facts.slice(0, 4).map((fact) => {
     const item = document.createElement("div");
-    item.className = "golf-fact";
+    item.className = `golf-fact ${golfFactClass(fact.label)}`;
+
+    const icon = document.createElement("span");
+    icon.className = "golf-fact-icon";
+    icon.textContent = golfFactIcon(fact.label);
+    icon.setAttribute("aria-hidden", "true");
+
+    const text = document.createElement("div");
+    text.className = "golf-fact-text";
 
     const label = document.createElement("span");
     label.textContent = fact.label;
@@ -279,9 +287,28 @@ function renderGolfFacts(weather) {
     const value = document.createElement("strong");
     value.textContent = fact.value;
 
-    item.append(label, value);
+    text.append(label, value);
+    item.append(icon, text);
     return item;
   });
+}
+
+function golfFactIcon(label) {
+  const key = String(label || "").toLowerCase();
+  if (key.includes("carry")) return "\u2197";
+  if (key.includes("putt")) return "\u25cf";
+  if (key.includes("wind")) return "\u2192";
+  if (key.includes("regen")) return "%";
+  return "i";
+}
+
+function golfFactClass(label) {
+  const key = String(label || "").toLowerCase();
+  if (key.includes("carry")) return "is-carry";
+  if (key.includes("putt")) return "is-putt";
+  if (key.includes("wind")) return "is-wind";
+  if (key.includes("regen")) return "is-rain-window";
+  return "";
 }
 
 function tournamentStatsText(tournament) {

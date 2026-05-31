@@ -327,24 +327,61 @@ h2 {
 .golf-fact {
   min-height: 58px;
   display: grid;
-  align-content: center;
-  gap: 3px;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
   padding: 9px 10px;
   border: 1px solid rgba(49, 65, 51, 0.78);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.035);
 }
 
-.golf-fact span {
+.golf-fact-icon {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(13, 22, 13, 0.3);
+  color: var(--green);
+  font-size: 0.9rem;
+  font-weight: 950;
+}
+
+.golf-fact-text {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.golf-fact-text span {
   color: var(--muted);
   font-size: 0.72rem;
   font-weight: 850;
 }
 
-.golf-fact strong {
+.golf-fact-text strong {
   color: var(--text);
   font-size: 0.86rem;
   line-height: 1.15;
+  white-space: normal;
+}
+
+.golf-fact.is-carry .golf-fact-icon {
+  color: var(--yellow);
+}
+
+.golf-fact.is-putt .golf-fact-icon {
+  color: var(--green);
+}
+
+.golf-fact.is-wind .golf-fact-icon {
+  color: var(--blue);
+}
+
+.golf-fact.is-rain-window .golf-fact-icon {
+  color: var(--blue);
 }
 
 .metric-list div {

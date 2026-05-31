@@ -477,6 +477,57 @@ dd {
   font-weight: 800;
 }
 
+.form-curve {
+  margin-top: 12px;
+}
+
+.form-pill {
+  min-height: 34px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 1px solid rgba(49, 65, 51, 0.78);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.form-pill span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+}
+
+.form-pill strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.form-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.form-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--red);
+  box-shadow: 0 0 0 3px rgba(239, 124, 101, 0.1);
+}
+
+.form-dot.steady {
+  background: var(--yellow);
+  box-shadow: 0 0 0 3px rgba(241, 201, 75, 0.1);
+}
+
+.form-dot.hot {
+  background: var(--green);
+  box-shadow: 0 0 0 3px rgba(118, 211, 73, 0.12);
+}
+
 .bar-grid {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
@@ -788,6 +839,13 @@ dd {
 .source-footer {
   grid-column: 1 / -1;
   padding: 0 6px 10px;
+}
+
+.signature {
+  margin-top: 8px;
+  color: rgba(174, 186, 170, 0.62);
+  font-size: 0.72rem;
+  font-weight: 750;
 }
 
 .source-chip {

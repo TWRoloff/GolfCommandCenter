@@ -99,6 +99,7 @@ const els = {
   tournamentResult: document.querySelector("#tournamentResult"),
   tournamentLatest: document.querySelector("#tournamentLatest"),
   tournamentTrend: document.querySelector("#tournamentTrend"),
+  formCurve: document.querySelector("#formCurve"),
   tournamentChart: document.querySelector("#tournamentChart"),
   dreamScore: document.querySelector("#dreamScore"),
   dreamMeta: document.querySelector("#dreamMeta"),
@@ -274,7 +275,53 @@ function renderTournament(tournament) {
   els.tournamentResult.textContent = latest ? "Netto-Punkte" : "Netto";
   els.tournamentLatest.textContent = latest ? tournament.summary : tournament?.status || "--";
   els.tournamentTrend.textContent = tournamentStatsText(tournament);
+  els.formCurve.replaceChildren(renderFormCurve(tournament?.history || []));
   els.tournamentChart.replaceChildren(renderTournamentChart(tournament?.history || []));
+}
+
+function renderFormCurve(history) {
+  const form = document.createElement("div");
+  form.className = "form-pill";
+
+  const values = history
+    .filter((item) => Number.isFinite(item.net) && item.net >= 0 && item.net <= 60)
+    .slice(0, 5);
+
+  const label = document.createElement("span");
+  label.textContent = "Form";
+
+  const value = document.createElement("strong");
+  value.textContent = formLabel(values);
+
+  const dots = document.createElement("div");
+  dots.className = "form-dots";
+  dots.replaceChildren(...values.slice().reverse().map(renderFormDot));
+
+  form.append(label, value, dots);
+  return form;
+}
+
+function renderFormDot(item) {
+  const dot = document.createElement("span");
+  dot.className = `form-dot ${formDotClass(item.net)}`;
+  dot.title = `${item.date}: Netto ${item.net}`;
+  return dot;
+}
+
+function formLabel(values) {
+  if (values.length < 3) return "zu wenig Daten";
+  const latest = values[0].net;
+  const restAverage = values.slice(1).reduce((sum, item) => sum + item.net, 0) / (values.length - 1);
+  const diff = latest - restAverage;
+  if (diff >= 2) return "steigend";
+  if (diff <= -2) return "fallend";
+  return "stabil";
+}
+
+function formDotClass(net) {
+  if (net >= 36) return "hot";
+  if (net >= 32) return "steady";
+  return "low";
 }
 
 function renderDreamRound(dreamRound) {

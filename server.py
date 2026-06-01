@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import math
 import os
 import argparse
 import html
@@ -57,13 +58,30 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if path == "/api/override":
             self.save_override()
             return
+        if path == "/api/drive-time":
+            self.send_drive_time()
+            return
         self.send_json({"error": "Not found"}, status=404)
 
-    def save_override(self):
+    def read_json_body(self):
         length = int(self.headers.get("Content-Length", "0"))
         raw_body = self.rfile.read(length).decode("utf-8")
+        return json.loads(raw_body) if raw_body else {}
+
+    def send_drive_time(self):
         try:
-            payload = json.loads(raw_body)
+            payload = self.read_json_body()
+            origin = {
+                "latitude": float(payload["latitude"]),
+                "longitude": float(payload["longitude"]),
+            }
+            self.send_json(fetch_drive_time(origin, CLUB))
+        except Exception as error:
+            self.send_json({"ok": False, "error": str(error)}, status=400)
+
+    def save_override(self):
+        try:
+            payload = self.read_json_body()
             write_override(payload)
             self.send_json({"ok": True, "override": payload})
         except Exception as error:
@@ -290,6 +308,173 @@ def write_override(payload):
     with override_path.open("w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)
         file.write("\n")
+
+
+def fetch_drive_time(origin, club):
+    destination = club["coordinates"]
+    provider = os.getenv("ROUTING_PROVIDER", "auto").lower()
+    google_key = os.getenv("GOOGLE_MAPS_API_KEY", "").strip()
+
+    if provider in ("auto", "google") and google_key:
+        try:
+            return fetch_google_drive_time(origin, destination, google_key)
+        except Exception as error:
+            print(f"Google routing provider failed: {error}")
+            if provider == "google":
+                raise
+
+    if provider in ("auto", "osrm"):
+        try:
+            return fetch_osrm_drive_time(origin, destination)
+        except Exception as error:
+            print(f"OSRM routing provider failed: {error}")
+            if provider == "osrm":
+                raise
+
+    return estimate_drive_time(origin, destination)
+
+
+def fetch_google_drive_time(origin, destination, api_key):
+    body = {
+        "origin": {"location": {"latLng": {"latitude": origin["latitude"], "longitude": origin["longitude"]}}},
+        "destination": {
+            "location": {
+                "latLng": {
+                    "latitude": destination["latitude"],
+                    "longitude": destination["longitude"],
+                }
+            }
+        },
+        "travelMode": "DRIVE",
+        "routingPreference": "TRAFFIC_AWARE",
+        "languageCode": "de-DE",
+        "units": "METRIC",
+    }
+    request = urllib.request.Request(
+        "https://routes.googleapis.com/directions/v2:computeRoutes",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": api_key,
+            "X-Goog-FieldMask": "routes.duration,routes.distanceMeters",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(request, timeout=8) as response:
+        data = json.loads(response.read().decode("utf-8"))
+
+    route = (data.get("routes") or [None])[0]
+    if not route:
+        raise ValueError("Keine Google-Route gefunden")
+
+    duration_seconds = parse_google_duration(route.get("duration"))
+    distance_meters = route.get("distanceMeters")
+    if duration_seconds is None or distance_meters is None:
+        raise ValueError("Google-Route ohne Dauer oder Entfernung")
+
+    return route_payload(
+        duration_seconds=duration_seconds,
+        distance_meters=distance_meters,
+        source="Google Routes",
+        precise=True,
+    )
+
+
+def parse_google_duration(value):
+    if not value:
+        return None
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)s", str(value))
+    if not match:
+        return None
+    return float(match.group(1))
+
+
+def fetch_osrm_drive_time(origin, destination):
+    coordinates = (
+        f"{origin['longitude']},{origin['latitude']};"
+        f"{destination['longitude']},{destination['latitude']}"
+    )
+    url = f"https://router.project-osrm.org/route/v1/driving/{coordinates}?overview=false"
+    request = urllib.request.Request(url, headers={"User-Agent": "GolfDashboard/0.1"})
+    with urllib.request.urlopen(request, timeout=8) as response:
+        data = json.loads(response.read().decode("utf-8"))
+
+    route = (data.get("routes") or [None])[0]
+    if not route:
+        raise ValueError("Keine OSRM-Route gefunden")
+
+    return route_payload(
+        duration_seconds=route["duration"],
+        distance_meters=route["distance"],
+        source="OSRM Route",
+        precise=True,
+    )
+
+
+def estimate_drive_time(origin, destination):
+    air_distance = distance_km(
+        origin["latitude"],
+        origin["longitude"],
+        destination["latitude"],
+        destination["longitude"],
+    )
+    road_distance = air_distance * 1.28 + 2
+    average_speed = 45 if road_distance < 20 else 70
+    duration_minutes = max(4, round((road_distance / average_speed) * 60 + 4))
+    return {
+        "ok": True,
+        "source": "Schätzung",
+        "precise": False,
+        "durationMinutes": duration_minutes,
+        "durationLabel": format_drive_minutes(duration_minutes),
+        "distanceKm": round(road_distance),
+        "distanceLabel": f"ca. {round(road_distance)} km geschätzt",
+    }
+
+
+def route_payload(duration_seconds, distance_meters, source, precise):
+    duration_minutes = max(1, round(duration_seconds / 60))
+    distance_km_value = distance_meters / 1000
+    return {
+        "ok": True,
+        "source": source,
+        "precise": precise,
+        "durationMinutes": duration_minutes,
+        "durationLabel": format_drive_minutes(duration_minutes),
+        "distanceKm": round(distance_km_value, 1),
+        "distanceLabel": format_drive_distance(distance_km_value),
+    }
+
+
+def format_drive_minutes(minutes):
+    if minutes < 60:
+        return f"ca. {minutes} min"
+    hours = minutes // 60
+    rest = minutes % 60
+    return f"ca. {hours} h {rest} min" if rest else f"ca. {hours} h"
+
+
+def format_drive_distance(distance_km_value):
+    if distance_km_value < 10:
+        return f"{distance_km_value:.1f} km".replace(".", ",")
+    return f"{round(distance_km_value)} km"
+
+
+def distance_km(from_lat, from_lon, to_lat, to_lon):
+    radius = 6371
+    delta_lat = to_radians(to_lat - from_lat)
+    delta_lon = to_radians(to_lon - from_lon)
+    lat1 = to_radians(from_lat)
+    lat2 = to_radians(to_lat)
+    a = (
+        math.sin(delta_lat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(delta_lon / 2) ** 2
+    )
+    return radius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def to_radians(value):
+    return (value * math.pi) / 180
 
 
 def fetch_weather(club):

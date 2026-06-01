@@ -108,6 +108,9 @@ const els = {
   clubCardName: document.querySelector("#clubCardName"),
   clubCardLocation: document.querySelector("#clubCardLocation"),
   courseStatus: document.querySelector("#courseStatus"),
+  driveTimePanel: document.querySelector("#driveTimePanel"),
+  driveTimeValue: document.querySelector("#driveTimeValue"),
+  driveTimeMeta: document.querySelector("#driveTimeMeta"),
   clubLink: document.querySelector("#clubLink"),
   clubNewsLink: document.querySelector("#clubNewsLink"),
   clubNewsTitle: document.querySelector("#clubNewsTitle"),
@@ -213,6 +216,95 @@ function normalizeClub(club) {
 
 function setSyncStatus(text) {
   els.syncStatus.textContent = text;
+}
+
+function requestDriveTime() {
+  if (!navigator.geolocation) {
+    renderDriveTime(null, "Standort nicht verfügbar");
+    return;
+  }
+
+  renderDriveTime(null, "Standort wird ermittelt");
+  navigator.geolocation.getCurrentPosition(
+    async (position) => {
+      try {
+        const route = await fetchDriveTime(position.coords);
+        renderDriveTime(route.durationLabel, `${route.distanceLabel} · ${route.source}`);
+      } catch {
+        const fallback = estimateDriveTime(position.coords);
+        renderDriveTime(fallback.durationLabel, fallback.distanceLabel);
+      }
+    },
+    () => renderDriveTime(null, "Standort freigeben"),
+    {
+      enableHighAccuracy: false,
+      maximumAge: 30 * 60 * 1000,
+      timeout: 9000,
+    },
+  );
+}
+
+async function fetchDriveTime(coords) {
+  const response = await fetch("/api/drive-time", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error("Routing nicht verfügbar");
+  }
+  const route = await response.json();
+  if (!route.ok) {
+    throw new Error(route.error || "Routing nicht verfügbar");
+  }
+  return route;
+}
+
+function renderDriveTime(value, meta) {
+  els.driveTimeValue.textContent = value || "Standort";
+  els.driveTimeMeta.textContent = meta;
+}
+
+function estimateDriveTime(coords) {
+  const airDistance = distanceKm(
+    coords.latitude,
+    coords.longitude,
+    dashboardState.club.coordinates.latitude,
+    dashboardState.club.coordinates.longitude,
+  );
+  const roadDistance = airDistance * 1.28 + 2;
+  const averageSpeed = roadDistance < 20 ? 45 : 70;
+  const minutes = Math.max(4, Math.round((roadDistance / averageSpeed) * 60 + 4));
+  return {
+    durationLabel: formatDriveMinutes(minutes),
+    distanceLabel: `ca. ${Math.round(roadDistance)} km geschätzt`,
+  };
+}
+
+function formatDriveMinutes(minutes) {
+  if (minutes < 60) return `ca. ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  return rest ? `ca. ${hours} h ${rest} min` : `ca. ${hours} h`;
+}
+
+function distanceKm(fromLat, fromLon, toLat, toLon) {
+  const radius = 6371;
+  const deltaLat = toRadians(toLat - fromLat);
+  const deltaLon = toRadians(toLon - fromLon);
+  const lat1 = toRadians(fromLat);
+  const lat2 = toRadians(toLat);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLon / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function toRadians(value) {
+  return (value * Math.PI) / 180;
 }
 
 function simulateLiveData() {
@@ -645,3 +737,9 @@ setInterval(() => {
   simulateLiveData();
   render();
 }, dashboardState.club.refresh.visualMs);
+
+els.driveTimePanel.addEventListener("click", requestDriveTime);
+els.driveTimePanel.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") requestDriveTime();
+});
+requestDriveTime();

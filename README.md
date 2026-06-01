@@ -6,6 +6,7 @@ Lokales Golf-Dashboard fuer Gut Apeldoer. Der Python-Server liest Wetter, PC-CAD
 
 - Wetter: Open-Meteo ueber die Club-Koordinaten
 - Club-News: neueste Meldung von `https://apeldoer.de/apeldoer-updates/`
+- Fahrzeit: lokale Browser-Standortfreigabe plus serverseitiges Routing ueber Google Routes oder OSRM
 - Startzeiten: PC CADDIE/GolfCloud, gruppiert nach 9 und 18 Loechern
 - Platzbelegung: aus den sichtbaren PC-CADDIE-Startzeiten berechnet
 - Naechste Runde: PC CADDIE/GolfCloud Reservierungen
@@ -29,6 +30,8 @@ Direkt per PowerShell:
 $env:PCCADDIE_CLUB_ID="0492321"
 $env:PCCADDIE_USERNAME="dein-benutzer"
 $env:PCCADDIE_PASSWORD="dein-passwort"
+$env:ROUTING_PROVIDER="auto"
+$env:GOOGLE_MAPS_API_KEY=""
 python server.py
 ```
 
@@ -45,6 +48,18 @@ http://127.0.0.1:4173/
 ```
 
 Der alte Static-Start mit `python -m http.server` ist nicht mehr empfohlen, weil dann die serverseitigen PC-CADDIE- und News-Anschluesse fehlen.
+
+## Fahrzeit zum Club
+
+Die kleine Fahrzeit-Anzeige nutzt den aktuellen Browser-Standort nur nach Freigabe. Der Standort wird an den lokalen Python-Server geschickt und dort geroutet, damit ein Google-API-Key nicht im Frontend sichtbar wird.
+
+Optionen:
+
+- `GOOGLE_MAPS_API_KEY` gesetzt: nutzt Google Routes API mit Fahrstrecke und Fahrzeit.
+- Kein Google-Key: versucht OSRM/OpenStreetMap-Routing ohne Key.
+- Routing nicht erreichbar: zeigt eine grobe Schaetzung und markiert sie als geschaetzt.
+
+Fuer Google Maps Platform muss im Google-Cloud-Projekt die Routes API aktiviert sein. Setze ausserdem ein Tageslimit/Budget, damit ein Fehler im Kiosk nicht unbemerkt Kosten erzeugt.
 
 ## PC CADDIE anbinden
 
@@ -110,6 +125,8 @@ Hinweis zur Privatsphaere: Je nach GitHub-Plan ist die Pages-Seite oeffentlich e
 PCCADDIE_CLUB_ID=0492321
 PCCADDIE_USERNAME=dein-benutzer
 PCCADDIE_PASSWORD=dein-passwort
+ROUTING_PROVIDER=auto
+GOOGLE_MAPS_API_KEY=
 ```
 
 2. Unter `Settings > Pages` als Source `GitHub Actions` auswaehlen.
@@ -159,6 +176,8 @@ GOLF_DASHBOARD_PORT=4173
 PCCADDIE_CLUB_ID=0492321
 PCCADDIE_USERNAME=dein-benutzer
 PCCADDIE_PASSWORD=dein-passwort
+ROUTING_PROVIDER=auto
+GOOGLE_MAPS_API_KEY=
 ```
 
 4. Lokalen Webserver testweise starten:

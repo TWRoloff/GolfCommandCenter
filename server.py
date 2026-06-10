@@ -75,7 +75,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "latitude": float(payload["latitude"]),
                 "longitude": float(payload["longitude"]),
             }
-            self.send_json(fetch_drive_time(origin, CLUB))
+            destination = payload.get("destination") or CLUB["coordinates"]
+            selected_club = {
+                "coordinates": {
+                    "latitude": float(destination["latitude"]),
+                    "longitude": float(destination["longitude"]),
+                }
+            }
+            self.send_json(fetch_drive_time(origin, selected_club))
         except Exception as error:
             self.send_json({"ok": False, "error": str(error)}, status=400)
 

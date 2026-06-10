@@ -41,8 +41,8 @@ window.DashboardServices = {
     const params = new URLSearchParams({
       latitude,
       longitude,
-      current: "temperature_2m,weather_code,wind_speed_10m,precipitation",
-      hourly: "precipitation_probability",
+      current: "temperature_2m,weather_code,wind_speed_10m,wind_direction_10m,precipitation,relative_humidity_2m",
+      hourly: "precipitation_probability,wind_speed_10m,relative_humidity_2m",
       forecast_days: "1",
       timezone: "Europe/Berlin",
     });
@@ -52,13 +52,21 @@ window.DashboardServices = {
       if (!response.ok) throw new Error(`Weather HTTP ${response.status}`);
       const data = await response.json();
       const rainChance = findCurrentRainChance(data);
+      const current = data.current;
 
       return {
-        temperature: Math.round(data.current.temperature_2m),
-        summary: WEATHER_CODES[data.current.weather_code] || "Wetterdaten",
-        windKmh: Math.round(data.current.wind_speed_10m),
+        temperature: Math.round(current.temperature_2m),
+        summary: WEATHER_CODES[current.weather_code] || "Wetterdaten",
+        windKmh: Math.round(current.wind_speed_10m),
+        windDirection: windDirectionLabel(current.wind_direction_10m),
         rainChance,
-        greenSpeed: estimateGreenSpeed(data.current.wind_speed_10m, rainChance, data.current.precipitation),
+        greenSpeed: estimateGreenSpeed(current.wind_speed_10m, rainChance, current.precipitation),
+        playFacts: [
+          { label: "Carry", value: carryEffectLabel(current.temperature_2m, current.wind_speed_10m) },
+          { label: "Putten", value: puttEffectLabel(rainChance, current.precipitation, current.relative_humidity_2m) },
+          { label: "Windrichtung", value: windDirectionLabel(current.wind_direction_10m) },
+          { label: "Regenfenster", value: nextRainWindow(data) },
+        ],
       };
     } catch (error) {
       console.warn("Weather provider failed", error);
@@ -100,4 +108,36 @@ function estimateGreenSpeed(windKmh, rainChance, precipitation) {
   if (precipitation > 0 || rainChance > 50) return "eher langsam";
   if (windKmh > 20 && rainChance < 20) return "schnell";
   return "mittel-schnell";
+}
+
+function carryEffectLabel(temperature, windKmh) {
+  if (windKmh >= 28) return "deutlich windanf\u00e4llig";
+  if (temperature <= 8) return "k\u00fcrzer durch K\u00e4lte";
+  if (temperature >= 24 && windKmh < 18) return "etwas l\u00e4nger";
+  if (windKmh >= 18) return "Wind beachten";
+  return "neutral";
+}
+
+function puttEffectLabel(rainChance, precipitation, humidity) {
+  if (precipitation > 0 || rainChance >= 60) return "langsamer, feuchter";
+  if (humidity >= 85) return "leicht gebremst";
+  if (rainChance <= 15) return "rollt sauber";
+  return "normal";
+}
+
+function nextRainWindow(data) {
+  const currentTime = data.current?.time;
+  const times = data.hourly?.time || [];
+  const rainValues = data.hourly?.precipitation_probability || [];
+  const startIndex = Math.max(0, times.indexOf(currentTime));
+  for (let index = startIndex; index < Math.min(startIndex + 7, times.length, rainValues.length); index += 1) {
+    if (rainValues[index] >= 50) return `ab ${times[index].split("T")[1].slice(0, 5)} m\u00f6glich`;
+  }
+  return "6h trocken";
+}
+
+function windDirectionLabel(degrees) {
+  if (!Number.isFinite(degrees)) return "variabel";
+  const directions = ["N", "NO", "O", "SO", "S", "SW", "W", "NW"];
+  return directions[Math.round((degrees % 360) / 45) % 8];
 }

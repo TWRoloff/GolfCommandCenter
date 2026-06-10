@@ -15,6 +15,12 @@
           <p class="subtitle" id="clubName">Gut Apeld&ouml;r</p>
         </div>
         <div class="status-cluster" aria-label="Systemstatus">
+          <label class="club-picker">
+            <span>Golfplatz</span>
+            <input id="clubSearch" type="search" placeholder="Golfplatz oder Ort suchen" autocomplete="off" />
+            <select id="clubSelect" aria-label="Golfplatz in Deutschland ausw&auml;hlen"></select>
+            <small id="clubSearchCount">Lade Golfpl&auml;tze</small>
+          </label>
           <span id="currentDate">--.--.</span>
           <span id="clock">--:--</span>
           <span id="syncStatus">Synchronisiert</span>
@@ -164,7 +170,7 @@
             <small id="driveTimeMeta">Standort freigeben</small>
           </div>
           <a class="club-news" id="clubNewsLink" href="https://apeldoer.de/apeldoer-updates/" target="_blank" rel="noreferrer">
-            <span>Apeld&ouml;r Update</span>
+            <span id="clubNewsLabel">Apeld&ouml;r Update</span>
             <strong id="clubNewsTitle">Neueste Meldung laden</strong>
           </a>
           <a class="panel-link club-link" id="clubLink" href="https://apeldoer.de/startzeiten/" target="_blank" rel="noreferrer">Startzeiten &ouml;ffnen</a>
@@ -191,6 +197,7 @@
 
       <footer class="source-footer">
         <div id="sourceLine" class="source-line" aria-label="Datenquellenstatus">Datenquellen werden initialisiert</div>
+        <p class="data-attribution">Golfplatzverzeichnis: <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap-Mitwirkende</a></p>
         <p class="signature">Gebaut mit ❤️ von Thomas</p>
       </footer>
     </main>

@@ -97,6 +97,42 @@ h2 {
   border-radius: 8px;
 }
 
+.club-picker {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.club-picker span {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.club-picker input,
+.club-picker select {
+  min-height: 36px;
+  width: 280px;
+  padding: 0 30px 0 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.club-picker input {
+  padding-right: 10px;
+}
+
+.club-picker small {
+  color: var(--muted);
+  font-size: 0.65rem;
+}
+
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -628,6 +664,12 @@ dd {
   font-weight: 850;
 }
 
+.tee-empty {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .round-date {
   font-size: 1.35rem;
   font-weight: 800;
@@ -884,6 +926,17 @@ dd {
   font-weight: 750;
 }
 
+.data-attribution {
+  margin-top: 8px;
+  color: rgba(174, 186, 170, 0.72);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.data-attribution a {
+  color: var(--blue);
+}
+
 .source-chip {
   min-height: 26px;
   display: inline-flex;
@@ -932,6 +985,16 @@ dd {
   .status-cluster {
     margin-top: 12px;
     align-items: stretch;
+    flex-wrap: wrap;
+  }
+
+  .club-picker {
+    width: 100%;
+  }
+
+  .club-picker input,
+  .club-picker select {
+    width: 100%;
   }
 
   .tee-times {

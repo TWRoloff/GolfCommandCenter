@@ -65,10 +65,17 @@
   },
 };
 
+const defaultClubId = window.CLUB_CONFIG.id;
+let selectedClubId = defaultClubId;
+let availableGolfClubs = [...window.GOLF_CLUBS];
+
 const els = {
   currentDate: document.querySelector("#currentDate"),
   clock: document.querySelector("#clock"),
   syncStatus: document.querySelector("#syncStatus"),
+  clubSelect: document.querySelector("#clubSelect"),
+  clubSearch: document.querySelector("#clubSearch"),
+  clubSearchCount: document.querySelector("#clubSearchCount"),
   clubName: document.querySelector("#clubName"),
   sourceLine: document.querySelector("#sourceLine"),
   temperature: document.querySelector("#temperature"),
@@ -113,6 +120,7 @@ const els = {
   driveTimeMeta: document.querySelector("#driveTimeMeta"),
   clubLink: document.querySelector("#clubLink"),
   clubNewsLink: document.querySelector("#clubNewsLink"),
+  clubNewsLabel: document.querySelector("#clubNewsLabel"),
   clubNewsTitle: document.querySelector("#clubNewsTitle"),
   bookingLink: document.querySelector("#bookingLink"),
   scorecardLink: document.querySelector("#scorecardLink"),
@@ -144,6 +152,9 @@ async function refreshDashboard() {
   const dashboardData = await window.DashboardServices.fetchDashboard();
   if (dashboardData) {
     applyDashboardData(dashboardData);
+    if (selectedClubId !== defaultClubId) {
+      await applySelectedClubWeather();
+    }
     render();
     setSyncStatus("Synchronisiert");
     return;
@@ -175,6 +186,177 @@ async function refreshDashboard() {
 
   render();
   setSyncStatus("Synchronisiert");
+}
+
+async function selectClub(clubId) {
+  selectedClubId = clubId;
+  setSyncStatus("Lade Platzwetter");
+  await applySelectedClubWeather();
+  renderDriveTime(null, "Standort erneut berechnen");
+  render();
+  setSyncStatus("Synchronisiert");
+}
+
+async function applySelectedClubWeather() {
+  const selectedClub = availableGolfClubs.find((club) => club.id === selectedClubId) || window.CLUB_CONFIG;
+  dashboardState.club = normalizeClub(selectedClub);
+  dashboardState.clubUpdate = {
+    title: `${selectedClub.displayName} öffnen`,
+    url: selectedClub.urls.updates || selectedClub.urls.website,
+  };
+  const weather = await window.DashboardServices.fetchWeather(dashboardState.club);
+  if (weather) {
+    dashboardState.weather = weather;
+    dashboardState.sourceStatus.weather = "Open-Meteo live";
+  } else {
+    dashboardState.sourceStatus.weather = "Wetter nicht erreichbar";
+  }
+}
+
+async function loadGolfClubs() {
+  try {
+    const response = await fetch("data/golf_courses_de.json", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Golfplatzdaten HTTP ${response.status}`);
+    const osmClubs = (await response.json()).map(normalizeOsmGolfClub);
+    availableGolfClubs = mergeGolfClubs(window.GOLF_CLUBS, osmClubs);
+  } catch (error) {
+    console.warn("Golfplatzdaten nicht verfügbar", error);
+  }
+  renderClubOptions();
+}
+
+function normalizeOsmGolfClub(club) {
+  const osmUrl = `https://www.openstreetmap.org/${club.id.replace(/^osm-/, "").replace("-", "/")}`;
+  const website = club.website || osmUrl;
+  return {
+    id: club.id,
+    name: club.name,
+    displayName: club.name,
+    locationLabel: club.locationLabel || "Deutschland",
+    coordinates: {
+      latitude: club.latitude,
+      longitude: club.longitude,
+    },
+    urls: {
+      website,
+      teeTimes: website,
+      scorecard: website,
+      updates: website,
+    },
+  };
+}
+
+function mergeGolfClubs(curated, osmClubs) {
+  const clubs = [];
+  osmClubs.filter(isUsefulGolfClub).forEach((club) => addUniqueGolfClub(clubs, club, false));
+  curated.forEach((club) => addUniqueGolfClub(clubs, club, true));
+  return clubs.sort((left, right) => left.displayName.localeCompare(right.displayName, "de"));
+}
+
+function addUniqueGolfClub(clubs, candidate, preferCandidate) {
+  const duplicateIndex = clubs.findIndex((club) => golfClubsAreDuplicates(club, candidate));
+  if (duplicateIndex < 0) {
+    clubs.push(candidate);
+    return;
+  }
+
+  if (preferCandidate || golfClubInformationScore(candidate) > golfClubInformationScore(clubs[duplicateIndex])) {
+    clubs[duplicateIndex] = candidate;
+  }
+}
+
+function golfClubsAreDuplicates(left, right) {
+  const distance = distanceKm(
+    left.coordinates.latitude,
+    left.coordinates.longitude,
+    right.coordinates.latitude,
+    right.coordinates.longitude,
+  );
+  const leftWords = golfClubIdentityWords(left.displayName);
+  const rightWords = golfClubIdentityWords(right.displayName);
+  if (!leftWords.length || !rightWords.length) return false;
+  if (leftWords.join(" ") === rightWords.join(" ")) {
+    return distance <= 5 || !hasSpecificLocation(left) || !hasSpecificLocation(right);
+  }
+  if (distance > 5) return false;
+
+  const sharedWords = leftWords.filter((word) => rightWords.includes(word));
+  return sharedWords.length >= 2 && sharedWords.length / Math.min(leftWords.length, rightWords.length) >= 0.8;
+}
+
+function isUsefulGolfClub(club) {
+  const name = normalizeSearchText(club.displayName);
+  if (!/[a-z]/.test(name) || /^\d+(?: \d+)*$/.test(name)) return false;
+
+  const excludedTerms = [
+    "abenteuer golf", "adventure golf", "bahn ", "bauerngolf", "crossgolf", "disc golf",
+    "driving range", "fussball golf", "fussballgolf", "indoor golf", "indoorgolf", "mini golf",
+    "minigolf", "pitching", "soccerpark", "swin golf", "swingolf", "ubungsplatz",
+  ];
+  if (excludedTerms.some((term) => name.includes(term))) return false;
+
+  return !["golf", "golfplatz", "kurzplatz", "old course", "platz", "public course"].includes(name);
+}
+
+function hasSpecificLocation(club) {
+  return Boolean(club.locationLabel && club.locationLabel !== "Deutschland");
+}
+
+function golfClubIdentityWords(value) {
+  const ignoredWords = new Set([
+    "anlage", "course", "e", "ev", "golf", "golfanlage", "golfclub", "golfplatz",
+    "gc", "platz", "resort", "the", "und", "v",
+  ]);
+  return normalizeSearchText(value)
+    .split(" ")
+    .filter((word) => word.length > 1 && !ignoredWords.has(word));
+}
+
+function golfClubInformationScore(club) {
+  let score = 0;
+  if (club.locationLabel && club.locationLabel !== "Deutschland") score += 2;
+  if (club.urls?.website && !club.urls.website.includes("openstreetmap.org")) score += 2;
+  score += Math.min(2, golfClubIdentityWords(club.displayName).length / 4);
+  return score;
+}
+
+function renderClubOptions() {
+  const query = els.clubSearch.value.trim().toLocaleLowerCase("de");
+  const matches = availableGolfClubs.filter((club) => clubMatchesQuery(club, query));
+  const selectedClub = availableGolfClubs.find((club) => club.id === selectedClubId);
+  const visibleClubs = selectedClub && !matches.some((club) => club.id === selectedClubId)
+    ? [selectedClub, ...matches]
+    : matches;
+
+  els.clubSelect.replaceChildren(
+    ...visibleClubs.map((club) => {
+      const option = document.createElement("option");
+      option.value = club.id;
+      option.textContent = `${club.displayName} · ${club.locationLabel}`;
+      option.selected = club.id === selectedClubId;
+      return option;
+    }),
+  );
+  els.clubSearchCount.textContent = query
+    ? `${matches.length} von ${availableGolfClubs.length} Plätzen`
+    : `${availableGolfClubs.length} Plätze in Deutschland`;
+}
+
+function clubMatchesQuery(club, query) {
+  if (!query) return true;
+  const queryWords = normalizeSearchText(query).split(" ").filter(Boolean);
+  const clubWords = normalizeSearchText(`${club.displayName} ${club.locationLabel}`).split(" ").filter(Boolean);
+  return queryWords.every((queryWord) => clubWords.some((clubWord) => clubWord.startsWith(queryWord)));
+}
+
+function normalizeSearchText(value) {
+  return String(value || "")
+    .replace(/ß/g, "ss")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("de")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function applyDashboardData(data) {
@@ -251,6 +433,7 @@ async function fetchDriveTime(coords) {
     body: JSON.stringify({
       latitude: coords.latitude,
       longitude: coords.longitude,
+      destination: dashboardState.club.coordinates,
     }),
   });
   if (!response.ok) {
@@ -352,11 +535,14 @@ function render() {
   els.courseStatus.textContent = "Platz offen";
   els.clubLink.href = dashboardState.club.urls.teeTimes;
   els.clubNewsTitle.textContent = dashboardState.clubUpdate.title;
+  els.clubNewsLabel.textContent = selectedClubId === defaultClubId ? "Apeldör Update" : "Club-Website";
   els.clubNewsLink.href = dashboardState.clubUpdate.url || dashboardState.club.urls.updates;
 
   els.occupancyBars.replaceChildren(...renderOccupancyBars(dashboardState.occupancy));
   els.occupancyGroups.replaceChildren(...renderOccupancyGroups(dashboardState.teeTimeGroups));
-  els.teeTimes.replaceChildren(...renderTeeGroups(dashboardState.teeTimeGroups, dashboardState.teeTimes));
+  const visibleGroups = visibleTeeTimeGroups(dashboardState.teeTimeGroups, dashboardState.teeTimeDateLabel);
+  const visibleTimes = visibleTeeTimes(dashboardState.teeTimes, dashboardState.teeTimeDateLabel);
+  els.teeTimes.replaceChildren(...renderTeeGroups(visibleGroups, visibleTimes));
   els.scorecardGrid.replaceChildren(...renderScorecardGrid(dashboardState.scorecard.latest?.detail));
 }
 
@@ -596,7 +782,11 @@ function renderTeeTime(time) {
 
 function renderTeeGroups(groups, fallbackTimes) {
   if (!groups?.length) {
-    return fallbackTimes.map(renderTeeTime);
+    if (fallbackTimes?.length) return fallbackTimes.map(renderTeeTime);
+    const empty = document.createElement("p");
+    empty.className = "tee-empty";
+    empty.textContent = "Heute sind ab jetzt keine freien Startzeiten mehr sichtbar.";
+    return [empty];
   }
 
   return groups.map((group) => {
@@ -620,6 +810,29 @@ function renderTeeGroups(groups, fallbackTimes) {
     section.append(header, times);
     return section;
   });
+}
+
+function visibleTeeTimeGroups(groups, dateLabel) {
+  if (!isTodayLabel(dateLabel)) return groups || [];
+  return (groups || [])
+    .map((group) => ({ ...group, times: visibleTeeTimes(group.times, dateLabel) }))
+    .filter((group) => group.times.length);
+}
+
+function visibleTeeTimes(times, dateLabel) {
+  if (!isTodayLabel(dateLabel)) return times || [];
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  return (times || []).filter((time) => timeToMinutes(time) >= currentMinutes);
+}
+
+function isTodayLabel(label) {
+  return !label || label === "Heute";
+}
+
+function timeToMinutes(time) {
+  const match = String(time || "").match(/^(\d{2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : -1;
 }
 
 function renderOccupancyGroups(groups) {
@@ -729,6 +942,8 @@ function clamp(value, min, max) {
 }
 
 updateClock();
+renderClubOptions();
+loadGolfClubs();
 render();
 refreshDashboard();
 setInterval(updateClock, 1000);
@@ -739,6 +954,8 @@ setInterval(() => {
 }, dashboardState.club.refresh.visualMs);
 
 els.driveTimePanel.addEventListener("click", requestDriveTime);
+els.clubSelect.addEventListener("change", (event) => selectClub(event.target.value));
+els.clubSearch.addEventListener("input", renderClubOptions);
 els.driveTimePanel.addEventListener("keydown", (event) => {
   if (event.key === "Enter" || event.key === " ") requestDriveTime();
 });

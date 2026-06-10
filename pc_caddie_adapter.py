@@ -9,6 +9,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import codecs
+from datetime import date, datetime
 from pathlib import Path
 
 
@@ -171,7 +172,11 @@ class PcCaddieAdapter:
 
     def _build_tee_time_payload(self, page, tee_time_date=None, tee_time_date_label=None):
         tee_time_groups = self._parse_tee_time_groups(page)
-        visible_free_slots = self._flatten_group_slots(tee_time_groups) or self._parse_free_slots(page)
+        tee_time_groups = self._filter_groups_from_now(tee_time_groups, tee_time_date)
+        visible_free_slots = self._flatten_group_slots(tee_time_groups) or self._filter_slots_from_now(
+            self._parse_free_slots(page),
+            tee_time_date,
+        )
         if not visible_free_slots:
             return None
 
@@ -319,6 +324,54 @@ class PcCaddieAdapter:
             if row.get("free", 0) > 0 and time and time not in tee_times:
                 tee_times.append(time)
         return tee_times[:limit] if limit else tee_times
+
+    def _filter_groups_from_now(self, groups, tee_time_date=None, now=None):
+        filtered_groups = []
+        for group in groups:
+            rows = self._filter_slots_from_now(group.get("slots", []), tee_time_date, now)
+            if not rows:
+                continue
+            details = self._build_group_occupancy(group.get("label", "Startzeiten"), rows)
+            filtered_groups.append(
+                {
+                    **group,
+                    "times": self._next_free_times(rows, limit=4),
+                    "occupancy": details["occupancy"],
+                    "bookedSlots": details["bookedSlots"],
+                    "freeSlots": details["freeSlots"],
+                    "totalSlots": details["totalSlots"],
+                    "freeLabel": details["freeLabel"],
+                    "slots": rows,
+                }
+            )
+        return filtered_groups
+
+    def _filter_slots_from_now(self, rows, tee_time_date=None, now=None):
+        if not self._is_today(tee_time_date, now):
+            return rows
+
+        current = now or datetime.now()
+        current_minutes = current.hour * 60 + current.minute
+        return [
+            row
+            for row in rows
+            if self._time_to_minutes(row.get("time")) >= current_minutes
+        ]
+
+    def _is_today(self, tee_time_date=None, now=None):
+        if not tee_time_date:
+            return True
+        current_date = (now or datetime.now()).date()
+        try:
+            return date.fromisoformat(str(tee_time_date)) == current_date
+        except ValueError:
+            return True
+
+    def _time_to_minutes(self, value):
+        match = re.fullmatch(r"(\d{2}):(\d{2})", str(value or ""))
+        if not match:
+            return -1
+        return int(match.group(1)) * 60 + int(match.group(2))
 
     def _fetch_live_next_round(self):
         page = self._fetch_cat("reservations")
@@ -998,11 +1051,16 @@ class PcCaddieAdapter:
             return None
 
         occupancy = self.override.get("occupancy", 60)
+        tee_times = self._next_free_times(
+            self._filter_slots_from_now(
+                [{"time": time, "free": 1} for time in self.override.get("teeTimes", [])]
+            )
+        )
         return {
             "source": "Lokaler Override",
             "occupancy": occupancy,
             "occupancyDetails": self.override.get("occupancyDetails", self._fallback_occupancy_details(occupancy)),
-            "teeTimes": self.override.get("teeTimes", ["09:20", "09:30", "10:10", "10:20"]),
+            "teeTimes": tee_times,
         }
 
     def _fallback_occupancy_details(self, occupancy):

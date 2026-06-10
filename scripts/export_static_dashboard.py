@@ -32,6 +32,8 @@ def main():
     for file_name in STATIC_FILES:
         shutil.copy2(ROOT / file_name, DIST / file_name)
 
+    shutil.copy2(ROOT / "data" / "golf_courses_de.json", DATA_DIR / "golf_courses_de.json")
+
     payload = build_dashboard_payload()
     with (DATA_DIR / "dashboard.json").open("w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, indent=2)

@@ -5,6 +5,7 @@ Lokales Golf-Dashboard fuer Gut Apeldoer. Der Python-Server liest Wetter, PC-CAD
 ## Datenquellen
 
 - Wetter: Open-Meteo ueber die Club-Koordinaten
+- Golfplatzsuche: lokal gebuendelter OpenStreetMap-Datenstand mit allen dort innerhalb Deutschlands als `leisure=golf_course` erfassten und benannten Anlagen
 - Club-News: neueste Meldung von `https://apeldoer.de/apeldoer-updates/`
 - Fahrzeit: lokale Browser-Standortfreigabe plus serverseitiges Routing ueber Google Routes oder OSRM
 - Startzeiten: PC CADDIE/GolfCloud, gruppiert nach 9 und 18 Loechern

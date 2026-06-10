@@ -8,6 +8,7 @@ import html
 import re
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -137,6 +138,7 @@ def build_dashboard_payload():
             handicap_data["bestRound"] = "noch offen"
 
     return {
+        "generatedAt": datetime.now(timezone.utc).isoformat(),
         "club": CLUB,
         "weather": fetch_weather(CLUB),
         "clubUpdate": fetch_club_update(CLUB),

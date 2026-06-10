@@ -1,4 +1,5 @@
 ﻿const dashboardState = {
+  generatedAt: null,
   club: window.CLUB_CONFIG,
   weather: {
     temperature: 21,
@@ -156,7 +157,7 @@ async function refreshDashboard() {
       await applySelectedClubWeather();
     }
     render();
-    setSyncStatus("Synchronisiert");
+    setSyncStatus(syncStatusText());
     return;
   }
 
@@ -360,6 +361,7 @@ function normalizeSearchText(value) {
 }
 
 function applyDashboardData(data) {
+  dashboardState.generatedAt = data.generatedAt || null;
   dashboardState.club = normalizeClub(data.club || dashboardState.club);
   dashboardState.weather = data.weather || dashboardState.weather;
   dashboardState.teeTimes = data.teeTimes || dashboardState.teeTimes;
@@ -380,6 +382,19 @@ function applyDashboardData(data) {
   dashboardState.tournament = data.tournament || dashboardState.tournament;
   dashboardState.dreamRound = data.dreamRound || dashboardState.dreamRound;
   dashboardState.clubInfo = [];
+}
+
+function syncStatusText() {
+  if (!dashboardState.generatedAt) return "Synchronisiert";
+  const generatedAt = new Date(dashboardState.generatedAt);
+  if (Number.isNaN(generatedAt.getTime())) return "Synchronisiert";
+  const timestamp = new Intl.DateTimeFormat("de-DE", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(generatedAt);
+  return `Datenstand ${timestamp}`;
 }
 
 function normalizeClub(club) {
